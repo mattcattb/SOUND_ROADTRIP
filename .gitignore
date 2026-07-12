@@ -29,8 +29,5 @@ logs/
 # Bun
 bun.lockb
 
-# Drizzle
-packages/server/drizzle/
-
 # Turbo
 .turbo/
