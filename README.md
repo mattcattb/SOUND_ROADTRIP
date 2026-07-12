@@ -46,13 +46,13 @@ The web app runs on `http://localhost:5173` and the API on `http://localhost:300
 
 ## Railway
 
-Create a Railway project with a **Postgres** service and an **API** service connected to this repository. The included `Dockerfile` deploys the API, builds the server, and applies committed Drizzle migrations before starting it.
+Create a Railway project with **Postgres**, **API**, and **web** services connected to this repository. `Dockerfile.server` deploys the API, builds the server, and applies committed Drizzle migrations before starting it.
 
 For the API service:
 
 1. Leave the root directory at the repository root.
 2. Generate a public domain.
-3. Set these variables:
+3. Set `RAILWAY_DOCKERFILE_PATH=Dockerfile.server` and these variables:
 
 ```text
 DATABASE_URL=<reference to the Postgres service's DATABASE_URL>
