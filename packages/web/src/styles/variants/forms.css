@@ -1,0 +1,16 @@
+@layer components {
+  .field-grid {
+    display: grid;
+    gap: 0.75rem;
+  }
+
+  .field-helper {
+    font-size: 0.875rem;
+    color: hsl(var(--muted-foreground));
+  }
+
+  .field-error {
+    font-size: 0.875rem;
+    color: hsl(var(--danger));
+  }
+}

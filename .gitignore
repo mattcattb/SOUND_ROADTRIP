@@ -1,0 +1,36 @@
+# Dependencies
+node_modules/
+
+# Build outputs
+dist/
+.output/
+
+# Environment
+.env
+.env.local
+.env.*.local
+.env.*
+!.env.example
+.envrc
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Bun
+bun.lockb
+
+# Drizzle
+packages/server/drizzle/
+
+# Turbo
+.turbo/

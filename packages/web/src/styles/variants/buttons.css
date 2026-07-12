@@ -1,0 +1,33 @@
+@layer components {
+  .btn-glow {
+    box-shadow:
+      0 0 0 1px hsl(var(--ring) / 0.26),
+      0 10px 24px hsl(var(--ring) / 0.22);
+  }
+
+  .btn-sheen {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn-sheen::after {
+    content: "";
+    position: absolute;
+    inset: -60% 40% auto -60%;
+    height: 200%;
+    background: linear-gradient(
+      120deg,
+      transparent,
+      hsl(var(--primary-foreground) / 0.2),
+      transparent
+    );
+    transform: rotate(8deg);
+    opacity: 0;
+    transition: opacity 200ms ease, transform 350ms ease;
+  }
+
+  .btn-sheen:hover::after {
+    opacity: 1;
+    transform: rotate(8deg) translateX(10%);
+  }
+}
