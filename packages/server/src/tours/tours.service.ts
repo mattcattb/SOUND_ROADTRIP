@@ -14,6 +14,29 @@ export const tourQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(10).default(5),
 });
 
+export const artistSearchSchema = z.object({
+  artist: z.string().trim().min(2).max(80),
+});
+
+export const searchArtistTour = async (artistName: string) => {
+  const result = await concertProvider.searchArtistEvents(artistName);
+
+  return {
+    provider: {
+      concerts: concertProvider.id,
+      configured: concertProvider.isConfigured(),
+      status: !concertProvider.isConfigured()
+        ? "not_configured" as const
+        : result.error
+          ? "degraded" as const
+          : "ready" as const,
+      message: result.error,
+    },
+    artist: {name: artistName},
+    events: result.events,
+  };
+};
+
 const getSpotifyAccount = async (userId: string) => {
   const [spotifyAccount] = await db
     .select()

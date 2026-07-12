@@ -28,7 +28,7 @@ export const signInWithSpotify = async () => {
     },
     body: JSON.stringify({
       providerId: "spotify",
-      callbackURL: `${window.location.origin}/dashboard`,
+      callbackURL: window.location.origin,
       errorCallbackURL: `${window.location.origin}/login`,
     }),
   });

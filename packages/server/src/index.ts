@@ -16,9 +16,9 @@ addErrorHandling(app);
 app.route("/api/auth", authController);
 
 const api = createRouter()
-  .use("*", authMiddleware)
-  .route("/projects", projectsController)
-  .route("/tours", toursController);
+  .route("/tours", toursController)
+  .use("/projects/*", authMiddleware)
+  .route("/projects", projectsController);
 
 app.route("/api", api);
 
