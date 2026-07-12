@@ -29,6 +29,7 @@ function ExplorePage() {
   const [artist, setArtist] = useState("");
   const [search, setSearch] = useState("");
   const [activeEventId, setActiveEventId] = useState<string>();
+  const [spotifyError, setSpotifyError] = useState("");
 
   const searchQuery = useQuery({
     queryKey: ["artist-tour", search],
@@ -83,13 +84,12 @@ function ExplorePage() {
           onSelect={setActiveEventId}
         />
         <div className="globe-vignette" />
-        <div className="hero-copy pointer-events-none">
-          <p className="eyebrow">YOUR MUSIC. THE WHOLE WORLD.</p>
-          <h1>Find where the music<br />takes you next.</h1>
-          <p>Search any artist or connect Spotify to turn your taste into a living map of upcoming shows.</p>
-        </div>
-
         <div className="command-panel">
+          <div className="command-heading">
+            <p className="eyebrow">EXPLORE LIVE MUSIC</p>
+            <h1>Who do you want to see?</h1>
+            <p>Search an artist to map their upcoming shows.</p>
+          </div>
           <form onSubmit={submit} className="search-form">
             <Search className="h-5 w-5 text-muted-foreground" />
             <Input
@@ -106,13 +106,21 @@ function ExplorePage() {
           <div className="or-divider"><span>OR</span></div>
           <Button
             className="spotify-button"
-            onClick={signInWithSpotify}
+            onClick={async () => {
+              setSpotifyError("");
+              try {
+                await signInWithSpotify();
+              } catch (error) {
+                setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
+              }
+            }}
             disabled={sessionPending || Boolean(session)}
           >
             <Headphones className="h-4 w-4" />
             {session ? "Spotify connected" : "Import my Spotify"}
           </Button>
           <p className="privacy-note">Read-only access · your listening data stays yours</p>
+          {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
         </div>
 
         {loading ? <div className="map-state">Plotting tour dates…</div> : null}

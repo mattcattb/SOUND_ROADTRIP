@@ -62,17 +62,19 @@
 .globe-canvas { position: absolute; inset: 0; }
 .globe-canvas canvas { cursor: grab; }
 .globe-canvas canvas:active { cursor: grabbing; }
-.globe-vignette { pointer-events: none; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,11,10,.96) 0%, rgba(5,11,10,.64) 34%, transparent 66%), linear-gradient(0deg, rgba(5,11,10,.9), transparent 25%); }
-.hero-copy { position: absolute; z-index: 5; top: 18%; left: clamp(20px,6vw,96px); max-width: 620px; }
+.globe-vignette { pointer-events: none; position: absolute; inset: 0; background: linear-gradient(90deg, rgba(5,11,10,.96) 0%, rgba(5,11,10,.68) 36%, transparent 68%), linear-gradient(0deg, rgba(5,11,10,.82), transparent 28%); }
 .eyebrow { margin: 0 0 14px; color: #d5ff72; font-size: 11px; font-weight: 800; letter-spacing: .2em; }
-.hero-copy h1 { max-width: 620px; margin: 0; font-family: var(--font-display); font-size: clamp(46px,6.4vw,94px); font-weight: 800; line-height: .93; letter-spacing: -.065em; text-transform: uppercase; }
-.hero-copy > p:last-child { max-width: 475px; margin: 24px 0 0; color: #9faaa5; font-size: clamp(15px,1.4vw,18px); line-height: 1.6; }
-.command-panel { position: absolute; z-index: 8; bottom: 7%; left: clamp(20px,6vw,96px); width: min(620px,calc(100% - 40px)); display: grid; grid-template-columns: minmax(0,1fr) auto 190px; align-items: center; gap: 14px; padding: 12px; border: 1px solid rgba(206,235,220,.17); border-radius: 16px; background: rgba(11,24,20,.82); box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(18px); }
+.command-panel { position: absolute; z-index: 8; top: 18%; left: clamp(20px,6vw,96px); width: min(590px,calc(100% - 40px)); display: grid; grid-template-columns: minmax(0,1fr) auto 190px; align-items: center; gap: 14px; padding: 22px; border: 1px solid rgba(206,235,220,.17); border-radius: 18px; background: rgba(11,24,20,.86); box-shadow: 0 30px 80px rgba(0,0,0,.45); backdrop-filter: blur(18px); }
+.command-heading { grid-column: 1 / -1; margin-bottom: 14px; }
+.command-heading .eyebrow { margin-bottom: 10px; }
+.command-heading h1 { margin: 0; font-family: var(--font-display); font-size: clamp(42px,5vw,68px); font-weight: 800; line-height: .94; letter-spacing: -.045em; text-transform: uppercase; }
+.command-heading > p:last-child { margin: 12px 0 0; color: #9faaa5; font-size: 14px; }
 .search-form { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .search-input { height: 42px !important; min-width: 0; border: 0 !important; background: transparent !important; box-shadow: none !important; padding-left: 2px !important; font-size: 15px !important; }
 .or-divider { color: #65716c; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
 .spotify-button { background: #f4f7ed !important; color: #0b1512 !important; box-shadow: none !important; white-space: nowrap; }
 .privacy-note { grid-column: 1 / -1; margin: -3px 4px 0; color: #64716c; font-size: 10px; }
+.connect-error { grid-column: 1 / -1; margin: 2px 4px 0; color: #ffaaa6; font-size: 12px; line-height: 1.45; }
 .map-state { position: absolute; z-index: 8; right: 5%; bottom: 6%; color: #d5ff72; font-size: 12px; letter-spacing: .08em; }
 .results-drawer { padding: 72px clamp(20px,6vw,96px) 96px; border-top: 1px solid rgba(206,235,220,.12); background: #0a1411; }
 .results-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; max-width: 1280px; margin: 0 auto 34px; }
@@ -97,9 +99,8 @@
   .globe-stage { min-height: 880px; }
   .globe-canvas { top: 135px; left: 12%; width: 110%; height: 520px; opacity: .82; }
   .globe-vignette { background: linear-gradient(180deg,rgba(5,11,10,.86),transparent 38%,rgba(5,11,10,.96) 72%); }
-  .hero-copy { top: 110px; }
-  .hero-copy h1 { font-size: clamp(43px,13vw,64px); }
-  .command-panel { bottom: 28px; grid-template-columns: 1fr; gap: 10px; }
+  .command-panel { top: 104px; bottom: auto; grid-template-columns: 1fr; gap: 10px; padding: 18px; }
+  .command-heading h1 { font-size: clamp(40px,12vw,58px); }
   .or-divider { text-align: center; }
   .privacy-note { grid-column: 1; text-align: center; }
   .results-heading { align-items: start; flex-direction: column; }

@@ -34,7 +34,11 @@ export const signInWithSpotify = async () => {
   });
 
   if (!response.ok) {
-    throw new Error("Spotify sign-in is not configured yet.");
+    throw new Error(
+      response.status === 404
+        ? "Spotify is not configured on the server. Add both the Spotify client ID and client secret, then redeploy the backend."
+        : "Spotify could not be connected. Please try again.",
+    );
   }
 
   const data = (await response.json()) as {url?: string};
