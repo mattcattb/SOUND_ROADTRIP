@@ -11,6 +11,7 @@ import {
   MapPin,
   Search,
   Sparkles,
+  X,
 } from "lucide-react";
 import {Button, Input} from "../components/ui";
 import {signInWithSpotify, useSession} from "../lib/auth";
@@ -27,26 +28,46 @@ type ArtistChoice =
   | SpotifyArtists["artists"][number];
 type TourEvent = EventResult["events"][number];
 
-export const Route = createFileRoute("/")({component: ExplorePage});
+const optionalSearchString = (value: unknown) =>
+  typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+interface ExploreSearch {
+  q?: string;
+  artist?: string;
+  artistId?: string;
+  event?: string;
+  picker?: "spotify";
+}
+
+export const Route = createFileRoute("/")({
+  validateSearch: (rawSearch: Record<string, unknown>): ExploreSearch => {
+    const artist = optionalSearchString(rawSearch.artist);
+    const query = optionalSearchString(rawSearch.q);
+    return {
+      q: query && query.length >= 2 ? query : undefined,
+      artist,
+      artistId: artist ? optionalSearchString(rawSearch.artistId) : undefined,
+      event: artist ? optionalSearchString(rawSearch.event) : undefined,
+      picker: rawSearch.picker === "spotify" ? "spotify" as const : undefined,
+    };
+  },
+  component: ExplorePage,
+});
 
 function ExplorePage() {
   const {data: session, isPending: sessionPending} = useSession();
+  const search = Route.useSearch();
+  const navigate = Route.useNavigate();
   const [artist, setArtist] = useState("");
-  const [artistLookup, setArtistLookup] = useState("");
-  const [selectedArtist, setSelectedArtist] = useState<{
-    name: string;
-    ticketmasterId?: string;
-  }>();
-  const [activeEventId, setActiveEventId] = useState<string>();
   const [spotifyError, setSpotifyError] = useState("");
   const resultsRef = useRef<HTMLElement>(null);
 
   const artistOptionsQuery = useQuery({
-    queryKey: ["artist-options", artistLookup],
-    queryFn: () => parseResponse(artistOptionsApi.$get({query: {query: artistLookup}})),
-    enabled: artistLookup.length >= 2,
+    queryKey: ["artist-options", search.q],
+    queryFn: () => parseResponse(artistOptionsApi.$get({query: {query: search.q ?? ""}})),
+    enabled: Boolean(search.q),
     retry: false,
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 60 * 6,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
@@ -60,53 +81,86 @@ function ExplorePage() {
   });
 
   const eventsQuery = useQuery({
-    queryKey: ["artist-events", selectedArtist],
+    queryKey: ["artist-events", search.artist, search.artistId],
     queryFn: () => parseResponse(eventsApi.$get({
-      query: selectedArtist?.ticketmasterId
-        ? {artist: selectedArtist.name, artistId: selectedArtist.ticketmasterId}
-        : {artist: selectedArtist?.name ?? ""},
+      query: search.artistId
+        ? {artist: search.artist ?? "", artistId: search.artistId}
+        : {artist: search.artist ?? ""},
     })),
-    enabled: Boolean(selectedArtist),
+    enabled: Boolean(search.artist),
     retry: false,
-    staleTime: 1000 * 60 * 30,
+    staleTime: 1000 * 60 * 15,
     gcTime: 1000 * 60 * 60 * 24,
   });
   const spotifyConnected = Boolean(session && spotifyQuery.data);
 
   const events = eventsQuery.data?.events ?? [];
-  const activeEvent = events.find((event) => event.id === activeEventId) ?? events[0];
+  const activeEvent = events.find((event) => event.id === search.event) ?? events[0];
+  const modalEvent = search.event
+    ? events.find((event) => event.id === search.event)
+    : undefined;
 
   useEffect(() => {
-    if (events.length && !events.some((event) => event.id === activeEventId)) {
-      setActiveEventId(events[0].id);
-    }
-  }, [activeEventId, events]);
+    setArtist(search.q ?? search.artist ?? "");
+  }, [search.artist, search.q]);
 
   useEffect(() => {
     if (
-      selectedArtist &&
+      search.artist &&
       !eventsQuery.isFetching &&
       (eventsQuery.data || eventsQuery.error)
     ) {
       resultsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
     }
-  }, [eventsQuery.data, eventsQuery.error, eventsQuery.isFetching, selectedArtist]);
+  }, [eventsQuery.data, eventsQuery.error, eventsQuery.isFetching, search.artist]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const value = artist.trim();
     if (value.length >= 2) {
-      setArtistLookup(value);
-      setSelectedArtist(undefined);
-      setActiveEventId(undefined);
+      navigate({
+        search: (previous) => ({
+          ...previous,
+          q: value,
+          artist: undefined,
+          artistId: undefined,
+          event: undefined,
+        }),
+      });
     }
   };
 
   const selectArtist = (name: string, ticketmasterId?: string) => {
-    setSelectedArtist({name, ticketmasterId});
-    setArtist(name);
-    setActiveEventId(undefined);
+    if (search.artist === name && search.artistId === ticketmasterId) {
+      resultsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
+      return;
+    }
+
+    navigate({
+      search: (previous) => ({
+        ...previous,
+        q: undefined,
+        artist: name,
+        artistId: ticketmasterId,
+        event: undefined,
+        picker: undefined,
+      }),
+    });
   };
+
+  const closeEvent = () => navigate({
+    replace: true,
+    search: (previous) => ({...previous, event: undefined}),
+  });
+
+  useEffect(() => {
+    if (!search.event) return;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") closeEvent();
+    };
+    window.addEventListener("keydown", closeOnEscape);
+    return () => window.removeEventListener("keydown", closeOnEscape);
+  }, [search.event]);
 
   return (
     <div className="explorer-shell">
@@ -124,7 +178,9 @@ function ExplorePage() {
         <RoadtripGlobe
           events={events}
           activeEventId={activeEvent?.id}
-          onSelect={setActiveEventId}
+          onSelect={(eventId) => navigate({
+            search: (previous) => ({...previous, event: eventId}),
+          })}
         />
         <div className="globe-vignette" />
         <div className="command-panel">
@@ -151,19 +207,30 @@ function ExplorePage() {
             className="spotify-button"
             onClick={async () => {
               setSpotifyError("");
+              if (spotifyConnected) {
+                navigate({
+                  search: (previous) => ({
+                    ...previous,
+                    picker: previous.picker === "spotify" ? undefined : "spotify",
+                  }),
+                });
+                return;
+              }
               try {
-                await signInWithSpotify();
+                await signInWithSpotify(`${window.location.origin}/?picker=spotify`);
               } catch (error) {
                 setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
               }
             }}
-            disabled={sessionPending || spotifyQuery.isFetching || spotifyConnected}
+            disabled={sessionPending || spotifyQuery.isFetching}
           >
             <Headphones className="h-4 w-4" />
             {sessionPending || spotifyQuery.isFetching
               ? "Loading Spotify…"
               : spotifyConnected
-                ? "Spotify connected"
+                ? search.picker === "spotify"
+                  ? "Hide Spotify artists"
+                  : "Choose Spotify artist"
                 : session
                   ? "Reconnect Spotify"
                   : "Import my Spotify"}
@@ -174,21 +241,21 @@ function ExplorePage() {
             <p className="choice-status">Finding artists…</p>
           ) : artistOptionsQuery.error ? (
             <p className="connect-error" role="alert">{getApiErrorMessage(artistOptionsQuery.error)}</p>
-          ) : artistLookup && artistOptionsQuery.data ? (
+          ) : search.q && artistOptionsQuery.data ? (
             <ArtistChoices
               label="Choose the artist you meant"
               artists={artistOptionsQuery.data.artists}
-              selectedName={selectedArtist?.name}
+              selectedName={search.artist}
               onSelect={(option) => selectArtist(option.name, option.id)}
             />
           ) : null}
           {spotifyQuery.error ? (
             <p className="connect-error" role="alert">{getApiErrorMessage(spotifyQuery.error)}</p>
-          ) : spotifyQuery.data ? (
+          ) : search.picker === "spotify" && spotifyQuery.data ? (
             <ArtistChoices
               label="Choose from your top artists"
               artists={spotifyQuery.data.artists}
-              selectedName={selectedArtist?.name}
+              selectedName={search.artist}
               onSelect={(option) => selectArtist(option.name)}
             />
           ) : null}
@@ -197,12 +264,12 @@ function ExplorePage() {
         {eventsQuery.isFetching ? <div className="map-state">Plotting tour dates…</div> : null}
       </section>
 
-      {selectedArtist && !eventsQuery.isFetching ? (
+      {search.artist && !eventsQuery.isFetching ? (
         <section ref={resultsRef} className="results-drawer" aria-live="polite">
           <div className="results-heading">
             <div>
               <p className="eyebrow">SELECTED ARTIST</p>
-              <h2>{selectedArtist.name}</h2>
+              <h2>{search.artist}</h2>
             </div>
             <div className="result-count"><strong>{events.length}</strong> upcoming shows</div>
           </div>
@@ -218,7 +285,9 @@ function ExplorePage() {
                   <button
                     key={event.id}
                     className={event.id === activeEvent?.id ? "event-row active" : "event-row"}
-                    onClick={() => setActiveEventId(event.id)}
+                    onClick={() => navigate({
+                      search: (previous) => ({...previous, event: event.id}),
+                    })}
                   >
                     <span className="event-date"><CalendarDays className="h-4 w-4" />{formatShortDate(event)}</span>
                     <span><strong>{event.name}</strong><small>{event.venue.city}, {event.venue.country}</small></span>
@@ -238,6 +307,41 @@ function ExplorePage() {
             </div>
           )}
         </section>
+      ) : null}
+
+      {search.event && !eventsQuery.isFetching ? (
+        <div
+          className="event-modal-backdrop"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeEvent();
+          }}
+        >
+          <section
+            className="event-modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="event-modal-title"
+          >
+            <button className="event-modal-close" onClick={closeEvent} aria-label="Close event">
+              <X className="h-5 w-5" />
+            </button>
+            {modalEvent ? (
+              <>
+                <p className="eyebrow">SELECTED STOP</p>
+                <h2 id="event-modal-title">{modalEvent.name}</h2>
+                <p><MapPin className="h-4 w-4" /> {modalEvent.venue.name}, {[modalEvent.venue.city, modalEvent.venue.state, modalEvent.venue.country].filter(Boolean).join(", ")}</p>
+                <p><CalendarDays className="h-4 w-4" /> {formatEventDate(modalEvent)}</p>
+                {modalEvent.url ? <a href={modalEvent.url} target="_blank" rel="noreferrer">View event <ExternalLink className="h-4 w-4" /></a> : null}
+              </>
+            ) : (
+              <>
+                <p className="eyebrow">EVENT UNAVAILABLE</p>
+                <h2 id="event-modal-title">This event is not in the current results.</h2>
+              </>
+            )}
+          </section>
+        </div>
       ) : null}
     </div>
   );

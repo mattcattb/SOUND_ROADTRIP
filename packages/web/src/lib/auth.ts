@@ -16,10 +16,10 @@ const authClient = createAuthClient({
 const {signIn} = authClient;
 export const {useSession} = authClient;
 
-export const signInWithSpotify = async () => {
+export const signInWithSpotify = async (callbackURL = window.location.origin) => {
   const result = await signIn.social({
     provider: "spotify",
-    callbackURL: window.location.origin,
+    callbackURL,
     errorCallbackURL: `${window.location.origin}/login`,
   });
 
