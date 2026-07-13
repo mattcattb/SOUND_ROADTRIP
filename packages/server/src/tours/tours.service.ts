@@ -1,10 +1,7 @@
 import {SpotifyApi, type AccessToken} from "@spotify/web-api-ts-sdk";
-import {and, eq} from "drizzle-orm";
 import {z} from "zod";
 import {appEnv} from "../common/env";
-import {ServiceException, UnauthorizedException} from "../common/errors";
-import {db} from "../db";
-import {account} from "../db/schema";
+import {ServiceException} from "../common/errors";
 import type {ConcertProvider} from "../lib/concert-provider";
 import {ticketmasterConcertProvider} from "../lib/ticketmaster";
 
@@ -37,68 +34,25 @@ export const searchArtistTour = async (artistName: string) => {
   };
 };
 
-const getSpotifyAccount = async (userId: string) => {
-  const [spotifyAccount] = await db
-    .select()
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, "spotify")))
-    .limit(1);
-
-  return spotifyAccount;
-};
-
-const getSpotifyClient = async (userId: string) => {
-  const spotifyAccount = await getSpotifyAccount(userId);
-
-  if (!spotifyAccount?.accessToken) {
-    throw new UnauthorizedException("Connect Spotify to build a tour map.");
-  }
-
-  const expiresIn = spotifyAccount.accessTokenExpiresAt
-    ? Math.max(
-        1,
-        Math.floor((spotifyAccount.accessTokenExpiresAt.getTime() - Date.now()) / 1000),
-      )
-    : 3600;
-
-  const accessToken: AccessToken = {
-    access_token: spotifyAccount.accessToken,
+const getSpotifyClient = (accessToken: string) => {
+  const token: AccessToken = {
+    access_token: accessToken,
     token_type: "Bearer",
-    expires_in: expiresIn,
-    refresh_token: spotifyAccount.refreshToken ?? "",
-    expires: spotifyAccount.accessTokenExpiresAt?.getTime(),
+    expires_in: 3600,
+    refresh_token: "",
   };
 
-  return {
-    spotify: SpotifyApi.withAccessToken(appEnv.SPOTIFY_CLIENT_ID ?? "", accessToken),
-    spotifyAccount,
-  };
-};
-
-const persistSpotifyToken = async (
-  spotifyAccount: typeof account.$inferSelect,
-  token: AccessToken | null,
-) => {
-  if (!token || token.access_token === spotifyAccount.accessToken) {
-    return;
-  }
-
-  await db
-    .update(account)
-    .set({
-      accessToken: token.access_token,
-      refreshToken: token.refresh_token || spotifyAccount.refreshToken,
-      accessTokenExpiresAt: token.expires ? new Date(token.expires) : null,
-      updatedAt: new Date(),
-    })
-    .where(eq(account.id, spotifyAccount.id));
+  return SpotifyApi.withAccessToken(
+    appEnv.SPOTIFY_CLIENT_ID ?? "",
+    token,
+  );
 };
 
 export const getRoadtrip = async (
-  userId: string,
+  accessToken: string,
   {limit}: z.infer<typeof tourQuerySchema>,
 ) => {
-  const {spotify, spotifyAccount} = await getSpotifyClient(userId);
+  const spotify = getSpotifyClient(accessToken);
   const topArtistLimit =
     limit as Parameters<typeof spotify.currentUser.topItems>[2];
 
@@ -109,8 +63,6 @@ export const getRoadtrip = async (
         message: err instanceof Error ? err.message : undefined,
       });
     });
-  await persistSpotifyToken(spotifyAccount, await spotify.getAccessToken());
-
   const artists = topArtists.items.map((artist) => ({
     id: artist.id,
     name: artist.name,

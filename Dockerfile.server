@@ -9,4 +9,4 @@ RUN bun install --frozen-lockfile \
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "bun run db:migrate && bun run --filter @spotify-roadtrip/server start"]
+CMD ["bun", "run", "--filter", "@spotify-roadtrip/server", "start"]

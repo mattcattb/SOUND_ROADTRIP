@@ -41,7 +41,7 @@ describe("Ticketmaster artist search", () => {
           ? {_embedded: {attractions: [{id: "artist-1", name: "Clairo"}]}}
           : {_embedded: {events: [event([{id: "artist-1", name: "Clairo"}])] }},
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const result = await ticketmasterConcertProvider.searchArtistEvents("clairo");
 
@@ -62,7 +62,7 @@ describe("Ticketmaster artist search", () => {
               {...event([{id: "artist-1", name: "Taylor Swift"}]), id: "event-2"},
             ]}},
       );
-    }) as typeof fetch;
+    }) as unknown as typeof fetch;
 
     const result = await ticketmasterConcertProvider.searchArtistEvents("Taylor Swift");
 

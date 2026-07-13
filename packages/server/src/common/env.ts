@@ -1,21 +1,5 @@
 import {z} from "zod";
 
-const betterAuthSchema = z.object({
-  BETTER_AUTH_SECRET: z.string(),
-  BETTER_AUTH_URL: z.string(),
-});
-
-const googleEnvSchema = z.object({
-  GOOGLE_CLIENT_ID: z.string().optional(),
-  GOOGLE_CLIENT_SECRET: z.string().optional(),
-  GOOGLE_API_KEY: z.string().optional(),
-});
-
-const githubEnvSchema = z.object({
-  GITHUB_CLIENT_ID: z.string().optional(),
-  GITHUB_CLIENT_SECRET: z.string().optional(),
-});
-
 const spotifyEnvSchema = z.object({
   SPOTIFY_CLIENT_ID: z.string().optional(),
   SPOTIFY_CLIENT_SECRET: z.string().optional(),
@@ -26,17 +10,36 @@ const ticketmasterEnvSchema = z.object({
 });
 
 const appEnvSchema = z.object({
-  ...betterAuthSchema.shape,
-  ...googleEnvSchema.shape,
-  ...githubEnvSchema.shape,
   ...spotifyEnvSchema.shape,
   ...ticketmasterEnvSchema.shape,
-  DATABASE_URL: z.string(),
+  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_URL: z.string().url().default("http://127.0.0.1:3000"),
 
   LOG_LEVEL: z.string().optional(),
-  CORS_ORIGINS: z.string().optional(),
+  CORS_ORIGINS: z
+    .string()
+    .transform((value) =>
+      value
+        .split(",")
+        .map((origin) => origin.trim())
+        .filter(Boolean),
+    )
+    .refine(
+      (origins) =>
+        origins.every((origin) => {
+          try {
+            new URL(origin);
+            return true;
+          } catch {
+            return false;
+          }
+        }),
+      "Every CORS origin must be a valid URL",
+    )
+    .transform((origins) => origins.map((origin) => new URL(origin).origin))
+    .optional(),
 
-  NODE_ENV: z.string().optional(),
+  NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
 
   PORT: z.preprocess((value) => {
     if (typeof value === "string" && value.trim() !== "") {
@@ -44,5 +47,51 @@ const appEnvSchema = z.object({
     }
     return value;
   }, z.number().int().positive().default(3000)),
+}).superRefine((env, context) => {
+  if (env.NODE_ENV === "production" && !env.BETTER_AUTH_SECRET) {
+    context.addIssue({
+      code: "custom",
+      path: ["BETTER_AUTH_SECRET"],
+      message: "Required in production",
+    });
+  }
+
+  if (
+    env.NODE_ENV === "production" &&
+    env.BETTER_AUTH_URL === "http://127.0.0.1:3000"
+  ) {
+    context.addIssue({
+      code: "custom",
+      path: ["BETTER_AUTH_URL"],
+      message: "Set this to the public API URL in production",
+    });
+  }
+
+  if (env.NODE_ENV === "production" && !env.CORS_ORIGINS?.length) {
+    context.addIssue({
+      code: "custom",
+      path: ["CORS_ORIGINS"],
+      message: "Set this to the deployed web origin in production",
+    });
+  }
+
+  if (!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET) {
+    for (const key of ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"] as const) {
+      const spotifyConfigured =
+        env.SPOTIFY_CLIENT_ID || env.SPOTIFY_CLIENT_SECRET;
+      if (!env[key] && (env.NODE_ENV === "production" || spotifyConfigured)) {
+        context.addIssue({
+          code: "custom",
+          path: [key],
+          message: "Both Spotify credentials are required together",
+        });
+      }
+    }
+  }
 });
 export const appEnv = appEnvSchema.parse(process.env);
+
+export const appOrigins = appEnv.CORS_ORIGINS ?? [
+  "http://127.0.0.1:5173",
+  "http://localhost:5173",
+];

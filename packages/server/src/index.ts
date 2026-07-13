@@ -4,9 +4,7 @@ import {addErrorHandling} from "./common/errors";
 import {addGlobalMiddlewares, createRouter} from "./common/hono";
 
 import {authController} from "./auth/auth.controller";
-import {authMiddleware} from "./auth/auth.middleware";
 
-import {projectsController} from "./projects/projects.controller";
 import {toursController} from "./tours/tours.controller";
 
 const app = createRouter();
@@ -15,10 +13,7 @@ addErrorHandling(app);
 
 app.route("/api/auth", authController);
 
-const api = createRouter()
-  .route("/tours", toursController)
-  .use("/projects/*", authMiddleware)
-  .route("/projects", projectsController);
+const api = createRouter().route("/tours", toursController);
 
 app.route("/api", api);
 

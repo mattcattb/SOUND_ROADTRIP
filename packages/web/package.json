@@ -14,7 +14,7 @@
     "@spotify-roadtrip/server": "workspace:*",
     "@tanstack/react-query": "^5.62.0",
     "@tanstack/react-router": "^1.93.0",
-    "better-auth": "^1.2.0",
+    "better-auth": "^1.4.18",
     "clsx": "^2.1.1",
     "hono": "^4.6.0",
     "lucide-react": "^1.16.0",

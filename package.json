@@ -6,11 +6,6 @@
     "dev": "bun --env-file=.env run --filter '*' dev",
     "dev:server": "bun --env-file=.env run --filter @spotify-roadtrip/server dev",
     "dev:web": "bun --env-file=.env run --filter @spotify-roadtrip/web dev",
-    "build": "bun --env-file=.env run --filter '*' build",
-    "db:generate": "bun --env-file=.env run --filter @spotify-roadtrip/server db:generate",
-    "db:migrate": "bun --env-file=.env run --filter @spotify-roadtrip/server db:migrate",
-    "db:studio": "bun --env-file=.env run --filter @spotify-roadtrip/server db:studio",
-    "infra:up": "docker compose up -d",
-    "infra:down": "docker compose down"
+    "build": "bun --env-file=.env run --filter '*' build"
   }
 }

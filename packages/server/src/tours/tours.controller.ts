@@ -1,6 +1,8 @@
 import {zValidator} from "@hono/zod-validator";
 import {createRouter} from "../common/hono";
 import {authMiddleware} from "../auth/auth.middleware";
+import {UnauthorizedException} from "../common/errors";
+import {auth} from "../lib/auth";
 import {
   artistSearchSchema,
   getRoadtrip,
@@ -18,7 +20,24 @@ export const toursController = createRouter()
     authMiddleware,
     zValidator("query", tourQuerySchema),
     async (c) => {
-      const roadtrip = await getRoadtrip(c.get("userId"), c.req.valid("query"));
+      const {headers, response: token} = await auth.api.getAccessToken({
+        headers: c.req.raw.headers,
+        body: {providerId: "spotify"},
+        returnHeaders: true,
+      });
+
+      for (const cookie of headers.getSetCookie()) {
+        c.header("Set-Cookie", cookie, {append: true});
+      }
+
+      if (!token.accessToken) {
+        throw new UnauthorizedException("Connect Spotify to build a tour map.");
+      }
+
+      const roadtrip = await getRoadtrip(
+        token.accessToken,
+        c.req.valid("query"),
+      );
       return c.json(roadtrip);
     },
   );

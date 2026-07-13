@@ -1,7 +1,6 @@
 import type {Context, Hono} from "hono";
 import {HTTPException} from "hono/http-exception";
 import {ZodError} from "zod";
-import type {PostgresError} from "postgres";
 import {logger} from "./logger";
 import type {ContentfulStatusCode} from "hono/utils/http-status";
 
@@ -79,12 +78,6 @@ export class ServiceException extends AppHttpError {
   }
 }
 
-const isPostgresError = (err: unknown): err is PostgresError =>
-  typeof err === "object" &&
-  err !== null &&
-  ("code" in err || "severity" in err) &&
-  (err as {name?: string}).name === "PostgresError";
-
 const formatErrorResponse = (err: HTTPException) => {
   if (err instanceof AppHttpError) {
     return {
@@ -110,16 +103,6 @@ export const addErrorHandling = (app: Hono) => {
       );
       const payload = formatErrorResponse(validation);
       return c.json({error: payload}, validation.status);
-    }
-
-    if (isPostgresError(err)) {
-      logger.error({err}, "Database error");
-      const dbError = new ServiceException(ERROR_MESSAGES.SERVICE_ERROR, {
-        code: err.code,
-        detail: (err as {detail?: string}).detail,
-      });
-      const payload = formatErrorResponse(dbError);
-      return c.json({error: payload}, dbError.status);
     }
 
     if (err instanceof HTTPException) {
