@@ -4,12 +4,13 @@ Sign in with Spotify, see your top artists, and explore upcoming concert locatio
 
 ## What it uses
 
-- **Spotify Web API**: Spotify OAuth and the user's top artists. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
-- **Ticketmaster Discovery API**: upcoming music events and venue coordinates. Create an API key in the [Ticketmaster Developer Portal](https://developer.ticketmaster.com/).
+- **Spotify Web API**: Spotify OAuth, artist search, and the user's top artists. Create an app in the [Spotify Developer Dashboard](https://developer.spotify.com/dashboard).
+- **Ticketmaster Discovery API**: matching selected artists to upcoming events and venue coordinates. Create an API key in the [Ticketmaster Developer Portal](https://developer.ticketmaster.com/).
 - **Backend**: Bun, Hono, and Better Auth in stateless mode.
 - **Frontend**: React, Vite, TanStack Router/Query, and `react-globe.gl`.
 
-Ticketmaster results are artist-name discovery matches, not confirmed tour itineraries.
+Spotify is the artist-discovery source. Ticketmaster privately resolves the selected
+artist name to its own attraction ID; returned events are not confirmed tour itineraries.
 
 Spotify users are temporary: OAuth state, the one-hour session, and Spotify token
 material are kept in signed/encrypted HTTP-only cookies. Roadtrip does not create a
@@ -17,10 +18,11 @@ user record or store listening data in a database.
 
 ## Run locally
 
-Requirements: Bun, a Spotify app, and a Ticketmaster API key.
+Requirements: Bun, Docker, a Spotify app, and a Ticketmaster API key.
 
 ```bash
 cp .env.example .env
+docker compose up -d
 bun install
 bun run dev
 ```
@@ -34,6 +36,8 @@ VITE_API_URL=http://127.0.0.1:3000
 SPOTIFY_CLIENT_ID=
 SPOTIFY_CLIENT_SECRET=
 TICKETMASTER_API_KEY=
+DATABASE_URL=postgresql://postgres:postgres@127.0.0.1:5433/spotify_roadtrip
+REDIS_URL=redis://default:redis@127.0.0.1:6379
 CORS_ORIGINS=http://127.0.0.1:5173
 ```
 
@@ -46,11 +50,16 @@ http://127.0.0.1:3000/api/auth/callback/spotify
 Open the web app at `http://127.0.0.1:5173`; Spotify does not accept `localhost`
 redirect URIs. The API runs at `http://127.0.0.1:3000`.
 
+Redis is required when the API starts. PostgreSQL is included in Compose and its URL
+is reserved for future persistence, but the current stateless application does not
+connect to it.
+
 ## Railway
 
 Create a Railway project with **API** and **web** services connected to this
-repository. No Postgres service is needed. `Dockerfile.server` builds and runs the
-API.
+repository, plus a Redis service. `Dockerfile.server` builds and runs the API.
+PostgreSQL can use `DATABASE_URL` when persistence is introduced, but is not consumed
+by the current stateless runtime.
 
 For the API service:
 
@@ -64,6 +73,8 @@ BETTER_AUTH_URL=https://<api-domain>
 SPOTIFY_CLIENT_ID=<Spotify app client ID>
 SPOTIFY_CLIENT_SECRET=<Spotify app client secret>
 TICKETMASTER_API_KEY=<Ticketmaster API key>
+REDIS_URL=<Redis connection URL>
+DATABASE_URL=<Postgres connection URL>
 CORS_ORIGINS=https://<web-domain>
 NODE_ENV=production
 ```

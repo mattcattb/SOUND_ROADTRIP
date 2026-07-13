@@ -30,7 +30,6 @@ const optionalSearchString = (value: unknown) =>
 interface ExploreSearch {
   q?: string;
   artist?: string;
-  artistId?: string;
   event?: string;
   picker?: "spotify";
 }
@@ -42,7 +41,6 @@ export const Route = createFileRoute("/")({
     return {
       q: query && query.length >= 2 ? query : undefined,
       artist,
-      artistId: artist ? optionalSearchString(rawSearch.artistId) : undefined,
       event: artist ? optionalSearchString(rawSearch.event) : undefined,
       picker: rawSearch.picker === "spotify" ? "spotify" as const : undefined,
     };
@@ -78,12 +76,8 @@ function ExplorePage() {
   });
 
   const eventsQuery = useQuery({
-    queryKey: ["artist-events", search.artist, search.artistId],
-    queryFn: () => parseResponse(eventsApi.$get({
-      query: search.artistId
-        ? {artist: search.artist ?? "", artistId: search.artistId}
-        : {artist: search.artist ?? ""},
-    })),
+    queryKey: ["artist-events", search.artist],
+    queryFn: () => parseResponse(eventsApi.$get({query: {artist: search.artist ?? ""}})),
     enabled: Boolean(search.artist),
     retry: false,
     staleTime: 1000 * 60 * 15,
@@ -107,23 +101,21 @@ function ExplorePage() {
           ...previous,
           q: value,
           artist: undefined,
-          artistId: undefined,
           event: undefined,
         }),
       });
     }
   };
 
-  const selectArtist = (name: string, ticketmasterId?: string) => {
+  const selectArtist = (name: string) => {
     setDiscoveryOpen(false);
-    if (search.artist === name && search.artistId === ticketmasterId) return;
+    if (search.artist === name) return;
 
     navigate({
       search: (previous) => ({
         ...previous,
         q: undefined,
         artist: name,
-        artistId: ticketmasterId,
         event: undefined,
         picker: undefined,
       }),
@@ -240,7 +232,7 @@ function ExplorePage() {
                   label="Choose the artist you meant"
                   artists={artistOptionsQuery.data.artists}
                   selectedName={search.artist}
-                  onSelect={(option) => selectArtist(option.name, option.id)}
+                  onSelect={(option) => selectArtist(option.name)}
                 />
               ) : null}
               {spotifyQuery.error ? (

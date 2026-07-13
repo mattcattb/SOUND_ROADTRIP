@@ -1,6 +1,9 @@
 import {afterEach, beforeEach, describe, expect, mock, test} from "bun:test";
 import {appEnv} from "../common/env";
-import {clearTicketmasterCache, ticketmasterConcertProvider} from "./ticketmaster";
+import {
+  clearTicketmasterCache,
+  searchTicketmasterArtistEvents,
+} from "./ticketmaster";
 
 const originalFetch = globalThis.fetch;
 const originalApiKey = appEnv.TICKETMASTER_API_KEY;
@@ -21,9 +24,9 @@ const event = (attractions: Array<{id: string; name: string}>) => ({
   },
 });
 
-beforeEach(() => {
+beforeEach(async () => {
   appEnv.TICKETMASTER_API_KEY = "test-key";
-  clearTicketmasterCache();
+  await clearTicketmasterCache();
 });
 
 afterEach(() => {
@@ -46,12 +49,8 @@ describe("Ticketmaster artist search", () => {
     }) as unknown as typeof fetch;
 
     await Promise.all([
-      ticketmasterConcertProvider.searchArtists("Cache Artist"),
-      ticketmasterConcertProvider.searchArtists("cache artist"),
-    ]);
-    await Promise.all([
-      ticketmasterConcertProvider.searchArtistEvents("Cache Artist", "cache-artist"),
-      ticketmasterConcertProvider.searchArtistEvents("Cache Artist", "cache-artist"),
+      searchTicketmasterArtistEvents("Cache Artist"),
+      searchTicketmasterArtistEvents("cache artist"),
     ]);
 
     expect(urls.filter((url) => url.pathname.endsWith("attractions.json"))).toHaveLength(1);
@@ -83,7 +82,7 @@ describe("Ticketmaster artist search", () => {
 
     const results = await Promise.all(
       ["Clairo", "Lorde", "Haim"].map((artistName) =>
-        ticketmasterConcertProvider.searchArtistEvents(artistName),
+        searchTicketmasterArtistEvents(artistName),
       ),
     );
 
@@ -95,7 +94,7 @@ describe("Ticketmaster artist search", () => {
     appEnv.TICKETMASTER_API_KEY = undefined;
 
     await expect(
-      ticketmasterConcertProvider.searchArtistEvents("Clairo"),
+      searchTicketmasterArtistEvents("Clairo"),
     ).rejects.toThrow("Ticketmaster is not configured");
   });
 
@@ -105,7 +104,7 @@ describe("Ticketmaster artist search", () => {
     ) as unknown as typeof fetch;
 
     await expect(
-      ticketmasterConcertProvider.searchArtistEvents("Clairo"),
+      searchTicketmasterArtistEvents("Clairo"),
     ).rejects.toThrow("Ticketmaster returned 401");
   });
 
@@ -121,7 +120,7 @@ describe("Ticketmaster artist search", () => {
       );
     }) as unknown as typeof fetch;
 
-    const result = await ticketmasterConcertProvider.searchArtistEvents("clairo");
+    const result = await searchTicketmasterArtistEvents("clairo");
 
     expect(result.events).toHaveLength(1);
     expect(urls).toHaveLength(2);
@@ -139,7 +138,7 @@ describe("Ticketmaster artist search", () => {
       });
     }) as unknown as typeof fetch;
 
-    const result = await ticketmasterConcertProvider.searchArtistEvents(
+    const result = await searchTicketmasterArtistEvents(
       "Clairo",
       "artist-1",
     );
@@ -163,7 +162,7 @@ describe("Ticketmaster artist search", () => {
       );
     }) as unknown as typeof fetch;
 
-    const result = await ticketmasterConcertProvider.searchArtistEvents("Taylor Swift");
+    const result = await searchTicketmasterArtistEvents("Taylor Swift");
 
     expect(result.events.map((item) => item.id)).toEqual(["event-2"]);
   });

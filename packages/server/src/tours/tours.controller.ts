@@ -17,8 +17,7 @@ export const toursController = createRouter()
     return c.json(await searchArtistOptions(c.req.valid("query").query));
   })
   .get("/events", zValidator("query", artistSearchSchema), async (c) => {
-    const {artist, artistId} = c.req.valid("query");
-    return c.json(await searchArtistTour(artist, artistId));
+    return c.json(await searchArtistTour(c.req.valid("query").artist));
   })
   .get(
     "/artists/spotify",

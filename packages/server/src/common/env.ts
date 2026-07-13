@@ -14,6 +14,14 @@ const appEnvSchema = z.object({
   ...ticketmasterEnvSchema.shape,
   BETTER_AUTH_SECRET: z.string().trim().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().default("http://127.0.0.1:3000"),
+  DATABASE_URL: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().url().default("postgresql://postgres:postgres@127.0.0.1:5433/spotify_roadtrip"),
+  ),
+  REDIS_URL: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? undefined : value,
+    z.string().url().default("redis://default:redis@127.0.0.1:6379"),
+  ),
 
   LOG_LEVEL: z.string().optional(),
   CORS_ORIGINS: z

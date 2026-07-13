@@ -6,6 +6,10 @@ import {addGlobalMiddlewares, createRouter} from "./common/hono";
 import {authController} from "./auth/auth.controller";
 
 import {toursController} from "./tours/tours.controller";
+import {connectRedis} from "./lib/redis";
+
+await connectRedis();
+logger.info("Connected to Redis");
 
 const app = createRouter();
 addGlobalMiddlewares(app);
