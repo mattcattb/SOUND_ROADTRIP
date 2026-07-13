@@ -1,8 +1,7 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useQuery} from "@tanstack/react-query";
 import {DetailedError, parseResponse, type InferResponseType} from "hono/client";
-import {useEffect, useMemo, useRef, useState} from "react";
-import Globe from "react-globe.gl";
+import {useEffect, useRef, useState} from "react";
 import {
   ArrowRight,
   CalendarDays,
@@ -13,6 +12,8 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import {ArtistChoices} from "../components/artist-choices";
+import {RoadtripGlobe} from "../components/roadtrip-globe";
 import {Button, Input} from "../components/ui";
 import {signInWithSpotify, useSession} from "../lib/auth";
 import {rpcClient} from "../lib/rpc.client";
@@ -20,12 +21,7 @@ import {rpcClient} from "../lib/rpc.client";
 const artistOptionsApi = rpcClient.tours.artists.search;
 const spotifyArtistsApi = rpcClient.tours.artists.spotify;
 const eventsApi = rpcClient.tours.events;
-type ArtistOptions = InferResponseType<typeof artistOptionsApi.$get, 200>;
-type SpotifyArtists = InferResponseType<typeof spotifyArtistsApi.$get, 200>;
 type EventResult = InferResponseType<typeof eventsApi.$get, 200>;
-type ArtistChoice =
-  | ArtistOptions["artists"][number]
-  | SpotifyArtists["artists"][number];
 type TourEvent = EventResult["events"][number];
 
 const optionalSearchString = (value: unknown) =>
@@ -347,40 +343,6 @@ function ExplorePage() {
   );
 }
 
-function ArtistChoices({
-  label,
-  artists,
-  selectedName,
-  onSelect,
-}: {
-  label: string;
-  artists: ArtistChoice[];
-  selectedName?: string;
-  onSelect: (artist: ArtistChoice) => void;
-}) {
-  return (
-    <div className="artist-choices">
-      <p>{label}</p>
-      {artists.length ? (
-        <div className="artist-choice-list">
-          {artists.map((artist) => (
-            <button
-              key={artist.id}
-              type="button"
-              className={artist.name === selectedName ? "artist-choice selected" : "artist-choice"}
-              onClick={() => onSelect(artist)}
-            >
-              {artist.name}
-            </button>
-          ))}
-        </div>
-      ) : (
-        <span>No matching artists found.</span>
-      )}
-    </div>
-  );
-}
-
 function getApiErrorMessage(error: unknown) {
   if (error instanceof DetailedError) {
     const data = error.detail?.data;
@@ -398,40 +360,6 @@ function getApiErrorMessage(error: unknown) {
   }
 
   return error instanceof Error ? error.message : "Could not load concert data.";
-}
-
-function RoadtripGlobe({events, activeEventId, onSelect}: {events: TourEvent[]; activeEventId?: string; onSelect: (eventId: string) => void}) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState({width: 1200, height: 760});
-
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const observer = new ResizeObserver(([entry]) => setSize({width: Math.floor(entry.contentRect.width), height: Math.floor(entry.contentRect.height)}));
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
-
-  const points = useMemo(() => events.map((event) => ({...event, altitude: event.id === activeEventId ? 0.22 : 0.12, color: event.id === activeEventId ? "#f4ff78" : "#62e6c5"})), [activeEventId, events]);
-
-  return (
-    <div ref={containerRef} className="globe-canvas">
-      <Globe
-        globeImageUrl="//unpkg.com/three-globe/example/img/earth-night.jpg"
-        bumpImageUrl="//unpkg.com/three-globe/example/img/earth-topology.png"
-        backgroundColor="rgba(0,0,0,0)"
-        atmosphereColor="#73d8c0"
-        atmosphereAltitude={0.16}
-        pointsData={points}
-        pointAltitude="altitude"
-        pointColor="color"
-        pointRadius={0.42}
-        onPointClick={(point) => onSelect((point as TourEvent).id)}
-        width={size.width}
-        height={size.height}
-      />
-    </div>
-  );
 }
 
 function formatShortDate(event: TourEvent) {
