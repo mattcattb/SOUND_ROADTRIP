@@ -154,7 +154,7 @@ function ExplorePage() {
       </header>
 
       <main className="explorer-workspace">
-        <section className="globe-stage" aria-label="Interactive concert map">
+        <section className="map-stage" aria-label="Interactive concert map">
           <RoadtripMap
             events={events}
             activeEventId={activeEvent?.id}
