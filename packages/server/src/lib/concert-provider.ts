@@ -18,7 +18,6 @@ export interface ConcertEvent {
 
 export interface ConcertSearchResult {
   events: ConcertEvent[];
-  error?: string;
 }
 
 export interface ConcertProvider {

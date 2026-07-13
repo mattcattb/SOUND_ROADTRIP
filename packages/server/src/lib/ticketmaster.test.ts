@@ -31,6 +31,24 @@ afterEach(() => {
 });
 
 describe("Ticketmaster artist search", () => {
+  test("throws when Ticketmaster is not configured", async () => {
+    appEnv.TICKETMASTER_API_KEY = undefined;
+
+    await expect(
+      ticketmasterConcertProvider.searchArtistEvents("Clairo"),
+    ).rejects.toThrow("Ticketmaster is not configured");
+  });
+
+  test("throws when Ticketmaster returns an upstream error", async () => {
+    globalThis.fetch = mock(async () =>
+      Response.json({fault: "invalid key"}, {status: 401}),
+    ) as unknown as typeof fetch;
+
+    await expect(
+      ticketmasterConcertProvider.searchArtistEvents("Clairo"),
+    ).rejects.toThrow("Ticketmaster returned 401");
+  });
+
   test("uses an exact attraction id to request events", async () => {
     const urls: URL[] = [];
     globalThis.fetch = mock(async (input) => {

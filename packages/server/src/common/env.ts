@@ -75,6 +75,14 @@ const appEnvSchema = z.object({
     });
   }
 
+  if (env.NODE_ENV === "production" && !env.TICKETMASTER_API_KEY) {
+    context.addIssue({
+      code: "custom",
+      path: ["TICKETMASTER_API_KEY"],
+      message: "Required in production",
+    });
+  }
+
   if (!env.SPOTIFY_CLIENT_ID || !env.SPOTIFY_CLIENT_SECRET) {
     for (const key of ["SPOTIFY_CLIENT_ID", "SPOTIFY_CLIENT_SECRET"] as const) {
       const spotifyConfigured =

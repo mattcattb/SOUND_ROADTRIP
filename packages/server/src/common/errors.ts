@@ -11,6 +11,7 @@ export const ERROR_MESSAGES = {
   NOT_FOUND: "Not found",
   VALIDATION_ERROR: "Validation failed",
   SERVICE_ERROR: "Service error",
+  UPSTREAM_ERROR: "Upstream service error",
   INTERNAL_ERROR: "Internal server error",
 } as const;
 
@@ -23,6 +24,7 @@ const STATUS_TO_CODE: Record<number, ErrorCode> = {
   404: "NOT_FOUND",
   422: "VALIDATION_ERROR",
   500: "INTERNAL_ERROR",
+  502: "UPSTREAM_ERROR",
 };
 
 export class AppHttpError extends HTTPException {
@@ -78,6 +80,12 @@ export class ServiceException extends AppHttpError {
   }
 }
 
+export class UpstreamServiceException extends AppHttpError {
+  constructor(message?: string, details?: unknown) {
+    super(502, "UPSTREAM_ERROR", message, details);
+  }
+}
+
 const formatErrorResponse = (err: HTTPException) => {
   if (err instanceof AppHttpError) {
     return {
@@ -106,6 +114,11 @@ export const addErrorHandling = (app: Hono) => {
     }
 
     if (err instanceof HTTPException) {
+      if (err.status >= 500) {
+        logger.error({err}, "Request failed");
+      } else {
+        logger.warn({err}, "Request failed");
+      }
       const payload = formatErrorResponse(err);
       return c.json({error: payload}, err.status);
     }

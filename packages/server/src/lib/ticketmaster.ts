@@ -1,5 +1,6 @@
 import {z} from "zod";
 import {appEnv} from "../common/env";
+import {ServiceException, UpstreamServiceException} from "../common/errors";
 import type {ConcertProvider} from "./concert-provider";
 
 const ticketmasterEventSchema = z.object({
@@ -63,11 +64,48 @@ const normalizeArtistName = (value: string) =>
 
 const isTicketmasterConfigured = () => Boolean(appEnv.TICKETMASTER_API_KEY);
 
+const fetchTicketmaster = async <T extends z.ZodTypeAny>(
+  url: string,
+  schema: T,
+): Promise<z.infer<T>> => {
+  let response: Response;
+  try {
+    response = await fetch(url, {signal: AbortSignal.timeout(8_000)});
+  } catch (error) {
+    throw new UpstreamServiceException("Ticketmaster could not be reached.", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+
+  if (!response.ok) {
+    const body = await response.text().catch(() => "");
+    throw new UpstreamServiceException(
+      `Ticketmaster returned ${response.status}.`,
+      {
+        status: response.status,
+        statusText: response.statusText,
+        body: body.slice(0, 500),
+      },
+    );
+  }
+
+  try {
+    return schema.parse(await response.json());
+  } catch (error) {
+    throw new UpstreamServiceException(
+      "Ticketmaster returned an unexpected response.",
+      {
+        message: error instanceof Error ? error.message : String(error),
+      },
+    );
+  }
+};
+
 const searchTicketmasterArtistEvents: ConcertProvider["searchArtistEvents"] = async (
   artistName,
 ) => {
   if (!appEnv.TICKETMASTER_API_KEY) {
-    return {events: []};
+    throw new ServiceException("Ticketmaster is not configured.");
   }
 
   const normalizedArtistName = normalizeArtistName(artistName);
@@ -79,22 +117,13 @@ const searchTicketmasterArtistEvents: ConcertProvider["searchArtistEvents"] = as
   });
   let attractionId: string | undefined;
 
-  try {
-    const attractionResponse = await fetch(
-      `https://app.ticketmaster.com/discovery/v2/attractions.json?${attractionParams}`,
-      {signal: AbortSignal.timeout(8_000)},
-    );
-    if (attractionResponse.ok) {
-      const attractionData = ticketmasterAttractionResponseSchema.parse(
-        await attractionResponse.json(),
-      );
-      attractionId = attractionData._embedded?.attractions?.find(
-        (attraction) => normalizeArtistName(attraction.name) === normalizedArtistName,
-      )?.id;
-    }
-  } catch {
-    // Keyword search remains available when attraction resolution fails.
-  }
+  const attractionData = await fetchTicketmaster(
+    `https://app.ticketmaster.com/discovery/v2/attractions.json?${attractionParams}`,
+    ticketmasterAttractionResponseSchema,
+  );
+  attractionId = attractionData._embedded?.attractions?.find(
+    (attraction) => normalizeArtistName(attraction.name) === normalizedArtistName,
+  )?.id;
 
   const params = new URLSearchParams({
     apikey: appEnv.TICKETMASTER_API_KEY,
@@ -104,29 +133,10 @@ const searchTicketmasterArtistEvents: ConcertProvider["searchArtistEvents"] = as
   });
   params.set(attractionId ? "attractionId" : "keyword", attractionId ?? artistName);
 
-  let response: Response;
-  try {
-    response = await fetch(
-      `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
-      {signal: AbortSignal.timeout(8_000)},
-    );
-  } catch {
-    return {events: [], error: "Ticketmaster could not be reached."};
-  }
-
-  if (!response.ok) {
-    return {
-      events: [],
-      error: `Ticketmaster returned ${response.status}.`,
-    };
-  }
-
-  let data: z.infer<typeof ticketmasterResponseSchema>;
-  try {
-    data = ticketmasterResponseSchema.parse(await response.json());
-  } catch {
-    return {events: [], error: "Ticketmaster returned an unexpected response."};
-  }
+  const data = await fetchTicketmaster(
+    `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
+    ticketmasterResponseSchema,
+  );
 
   const events = (data._embedded?.events ?? []).flatMap((event) => {
     if (
@@ -144,7 +154,10 @@ const searchTicketmasterArtistEvents: ConcertProvider["searchArtistEvents"] = as
     const longitude = Number(venue?.location?.longitude);
 
     if (!venue || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      return [];
+      throw new UpstreamServiceException(
+        "Ticketmaster returned an event without venue coordinates.",
+        {eventId: event.id},
+      );
     }
 
     return {

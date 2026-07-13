@@ -1,6 +1,6 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useQuery} from "@tanstack/react-query";
-import {parseResponse, type InferResponseType} from "hono/client";
+import {DetailedError, parseResponse, type InferResponseType} from "hono/client";
 import {useEffect, useMemo, useRef, useState} from "react";
 import Globe from "react-globe.gl";
 import {
@@ -144,8 +144,8 @@ function ExplorePage() {
             <div className="result-count"><strong>{events.length}</strong> upcoming shows</div>
           </div>
 
-          {data?.provider.status === "not_configured" ? (
-            <p className="empty-state">Add a Ticketmaster API key to load live concert data.</p>
+          {error ? (
+            <p className="error-state" role="alert">{getApiErrorMessage(error)}</p>
           ) : events.length === 0 ? (
             <p className="empty-state">No mapped shows found yet. Try another artist.</p>
           ) : (
@@ -174,11 +174,29 @@ function ExplorePage() {
               ) : null}
             </div>
           )}
-          {error ? <p className="error-state">{error instanceof Error ? error.message : "Could not load concert data."}</p> : null}
         </section>
       ) : null}
     </div>
   );
+}
+
+function getApiErrorMessage(error: unknown) {
+  if (error instanceof DetailedError) {
+    const data = error.detail?.data;
+    if (
+      typeof data === "object" &&
+      data !== null &&
+      "error" in data &&
+      typeof data.error === "object" &&
+      data.error !== null &&
+      "message" in data.error &&
+      typeof data.error.message === "string"
+    ) {
+      return data.error.message;
+    }
+  }
+
+  return error instanceof Error ? error.message : "Could not load concert data.";
 }
 
 function RoadtripGlobe({events, activeEventId, onSelect}: {events: TourEvent[]; activeEventId?: string; onSelect: (eventId: string) => void}) {

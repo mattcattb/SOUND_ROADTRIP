@@ -1,7 +1,7 @@
 import {SpotifyApi, type AccessToken} from "@spotify/web-api-ts-sdk";
 import {z} from "zod";
 import {appEnv} from "../common/env";
-import {ServiceException} from "../common/errors";
+import {UpstreamServiceException} from "../common/errors";
 import type {ConcertProvider} from "../lib/concert-provider";
 import {ticketmasterConcertProvider} from "../lib/ticketmaster";
 
@@ -21,13 +21,8 @@ export const searchArtistTour = async (artistName: string) => {
   return {
     provider: {
       concerts: concertProvider.id,
-      configured: concertProvider.isConfigured(),
-      status: !concertProvider.isConfigured()
-        ? "not_configured" as const
-        : result.error
-          ? "degraded" as const
-          : "ready" as const,
-      message: result.error,
+      configured: true,
+      status: "ready" as const,
     },
     artist: {name: artistName},
     events: result.events,
@@ -59,7 +54,7 @@ export const getRoadtrip = async (
   const topArtists = await spotify.currentUser
     .topItems("artists", "medium_term", topArtistLimit)
     .catch((err: unknown) => {
-      throw new ServiceException("Spotify request failed.", {
+      throw new UpstreamServiceException("Spotify request failed.", {
         message: err instanceof Error ? err.message : undefined,
       });
     });
@@ -88,18 +83,11 @@ export const getRoadtrip = async (
       if (!b.date) return -1;
       return a.date.localeCompare(b.date);
     });
-  const providerError = searches.find((search) => search.error)?.error;
-
   return {
     provider: {
       concerts: concertProvider.id,
-      configured: concertProvider.isConfigured(),
-      status: !concertProvider.isConfigured()
-        ? "not_configured"
-        : providerError
-          ? "degraded"
-          : "ready",
-      message: providerError,
+      configured: true,
+      status: "ready" as const,
     },
     artists,
     events,
