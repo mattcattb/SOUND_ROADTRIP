@@ -1,16 +1,16 @@
 import {createFileRoute} from "@tanstack/react-router";
 import {useQuery} from "@tanstack/react-query";
 import {DetailedError, parseResponse, type InferResponseType} from "hono/client";
-import {useEffect, useRef, useState} from "react";
+import {useEffect, useState} from "react";
 import {
   ArrowRight,
   CalendarDays,
+  ChevronDown,
   ExternalLink,
   Headphones,
   MapPin,
   Search,
   Sparkles,
-  X,
 } from "lucide-react";
 import {ArtistChoices} from "../components/artist-choices";
 import {RoadtripGlobe} from "../components/roadtrip-globe";
@@ -56,7 +56,8 @@ function ExplorePage() {
   const navigate = Route.useNavigate();
   const [artist, setArtist] = useState("");
   const [spotifyError, setSpotifyError] = useState("");
-  const resultsRef = useRef<HTMLElement>(null);
+  const [discoveryOpen, setDiscoveryOpen] = useState(!search.artist);
+  const [focusRequest, setFocusRequest] = useState(0);
 
   const artistOptionsQuery = useQuery({
     queryKey: ["artist-options", search.q],
@@ -92,23 +93,10 @@ function ExplorePage() {
 
   const events = eventsQuery.data?.events ?? [];
   const activeEvent = events.find((event) => event.id === search.event) ?? events[0];
-  const modalEvent = search.event
-    ? events.find((event) => event.id === search.event)
-    : undefined;
 
   useEffect(() => {
     setArtist(search.q ?? search.artist ?? "");
   }, [search.artist, search.q]);
-
-  useEffect(() => {
-    if (
-      search.artist &&
-      !eventsQuery.isFetching &&
-      (eventsQuery.data || eventsQuery.error)
-    ) {
-      resultsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
-    }
-  }, [eventsQuery.data, eventsQuery.error, eventsQuery.isFetching, search.artist]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -127,10 +115,8 @@ function ExplorePage() {
   };
 
   const selectArtist = (name: string, ticketmasterId?: string) => {
-    if (search.artist === name && search.artistId === ticketmasterId) {
-      resultsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
-      return;
-    }
+    setDiscoveryOpen(false);
+    if (search.artist === name && search.artistId === ticketmasterId) return;
 
     navigate({
       search: (previous) => ({
@@ -144,19 +130,12 @@ function ExplorePage() {
     });
   };
 
-  const closeEvent = () => navigate({
-    replace: true,
-    search: (previous) => ({...previous, event: undefined}),
-  });
-
-  useEffect(() => {
-    if (!search.event) return;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") closeEvent();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
-  }, [search.event]);
+  const focusEvent = (eventId: string) => {
+    setFocusRequest((request) => request + 1);
+    navigate({
+      search: (previous) => ({...previous, event: eventId}),
+    });
+  };
 
   return (
     <div className="explorer-shell">
@@ -170,175 +149,162 @@ function ExplorePage() {
         </div>
       </header>
 
-      <section className="globe-stage" aria-label="Interactive concert map">
-        <RoadtripGlobe
-          events={events}
-          activeEventId={activeEvent?.id}
-          onSelect={(eventId) => navigate({
-            search: (previous) => ({...previous, event: eventId}),
-          })}
-        />
-        <div className="globe-vignette" />
-        <div className="command-panel">
-          <div className="command-heading">
-            <p className="eyebrow">EXPLORE LIVE MUSIC</p>
-            <h1>Who do you want to see?</h1>
-            <p>Search an artist to map their upcoming shows.</p>
-          </div>
-          <form onSubmit={submit} className="search-form">
-            <Search className="h-5 w-5 text-muted-foreground" />
-            <Input
-              value={artist}
-              onChange={(event) => setArtist(event.target.value)}
-              placeholder="Search an artist..."
-              aria-label="Artist name"
-              className="search-input"
-            />
-            <Button type="submit" size="sm" disabled={artist.trim().length < 2} aria-label="Search">
-              Find artist <ArrowRight className="h-4 w-4" />
-            </Button>
-          </form>
-          <div className="or-divider"><span>OR</span></div>
-          <Button
-            className="spotify-button"
-            onClick={async () => {
-              setSpotifyError("");
-              if (spotifyConnected) {
-                navigate({
-                  search: (previous) => ({
-                    ...previous,
-                    picker: previous.picker === "spotify" ? undefined : "spotify",
-                  }),
-                });
-                return;
-              }
-              try {
-                await signInWithSpotify(`${window.location.origin}/?picker=spotify`);
-              } catch (error) {
-                setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
-              }
-            }}
-            disabled={sessionPending || spotifyQuery.isFetching}
-          >
-            <Headphones className="h-4 w-4" />
-            {sessionPending || spotifyQuery.isFetching
-              ? "Loading Spotify…"
-              : spotifyConnected
-                ? search.picker === "spotify"
-                  ? "Hide Spotify artists"
-                  : "Choose Spotify artist"
-                : session
-                  ? "Reconnect Spotify"
-                  : "Import my Spotify"}
-          </Button>
-          <p className="privacy-note">Read-only access · your listening data stays yours</p>
-          {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
-          {artistOptionsQuery.isFetching ? (
-            <p className="choice-status">Finding artists…</p>
-          ) : artistOptionsQuery.error ? (
-            <p className="connect-error" role="alert">{getApiErrorMessage(artistOptionsQuery.error)}</p>
-          ) : search.q && artistOptionsQuery.data ? (
-            <ArtistChoices
-              label="Choose the artist you meant"
-              artists={artistOptionsQuery.data.artists}
-              selectedName={search.artist}
-              onSelect={(option) => selectArtist(option.name, option.id)}
-            />
-          ) : null}
-          {spotifyQuery.error ? (
-            <p className="connect-error" role="alert">{getApiErrorMessage(spotifyQuery.error)}</p>
-          ) : search.picker === "spotify" && spotifyQuery.data ? (
-            <ArtistChoices
-              label="Choose from your top artists"
-              artists={spotifyQuery.data.artists}
-              selectedName={search.artist}
-              onSelect={(option) => selectArtist(option.name)}
-            />
-          ) : null}
-        </div>
-
-        {eventsQuery.isFetching ? <div className="map-state">Plotting tour dates…</div> : null}
-      </section>
-
-      {search.artist && !eventsQuery.isFetching ? (
-        <section ref={resultsRef} className="results-drawer" aria-live="polite">
-          <div className="results-heading">
-            <div>
-              <p className="eyebrow">SELECTED ARTIST</p>
-              <h2>{search.artist}</h2>
+      <main className="explorer-workspace">
+        <section className="globe-stage" aria-label="Interactive concert map">
+          <RoadtripGlobe
+            events={events}
+            activeEventId={activeEvent?.id}
+            focusRequest={focusRequest}
+            onSelect={focusEvent}
+          />
+          <div className="globe-vignette" />
+          {!search.artist ? (
+            <div className="map-intro">
+              <p className="eyebrow">TOURS, MAPPED</p>
+              <h1>Follow the music.</h1>
+              <p>Choose an artist from the panel to plot their next stops around the world.</p>
             </div>
-            <div className="result-count"><strong>{events.length}</strong> upcoming shows</div>
-          </div>
+          ) : null}
+          {eventsQuery.isFetching ? <div className="map-state">Plotting tour dates…</div> : null}
+        </section>
 
-          {eventsQuery.error ? (
-            <p className="error-state" role="alert">{getApiErrorMessage(eventsQuery.error)}</p>
-          ) : events.length === 0 ? (
-            <p className="empty-state">No mapped shows found yet. Try another artist.</p>
-          ) : (
-            <div className="results-grid">
-              <div className="event-list">
-                {events.slice(0, 8).map((event) => (
-                  <button
-                    key={event.id}
-                    className={event.id === activeEvent?.id ? "event-row active" : "event-row"}
-                    onClick={() => navigate({
-                      search: (previous) => ({...previous, event: event.id}),
-                    })}
-                  >
-                    <span className="event-date"><CalendarDays className="h-4 w-4" />{formatShortDate(event)}</span>
-                    <span><strong>{event.name}</strong><small>{event.venue.city}, {event.venue.country}</small></span>
-                    <ArrowRight className="h-4 w-4" />
-                  </button>
-                ))}
-              </div>
-              {activeEvent ? (
-                <article className="event-detail">
-                  <p className="eyebrow">SELECTED STOP</p>
-                  <h3>{activeEvent.name}</h3>
-                  <p><MapPin className="h-4 w-4" /> {activeEvent.venue.name}, {[activeEvent.venue.city, activeEvent.venue.state, activeEvent.venue.country].filter(Boolean).join(", ")}</p>
-                  <p><CalendarDays className="h-4 w-4" /> {formatEventDate(activeEvent)}</p>
-                  {activeEvent.url ? <a href={activeEvent.url} target="_blank" rel="noreferrer">View event <ExternalLink className="h-4 w-4" /></a> : null}
-                </article>
+        <aside className="concert-rail" aria-label="Artist and concert explorer">
+          <button
+            type="button"
+            className="rail-discovery-toggle"
+            aria-expanded={discoveryOpen}
+            onClick={() => setDiscoveryOpen((open) => !open)}
+          >
+            <span className="rail-toggle-icon"><Search className="h-4 w-4" /></span>
+            <span className="rail-toggle-copy">
+              <small>DISCOVER</small>
+              <strong>{search.artist ? "Change artist" : "Find an artist"}</strong>
+            </span>
+            <ChevronDown className={discoveryOpen ? "h-4 w-4 rotate-180" : "h-4 w-4"} />
+          </button>
+
+          {discoveryOpen ? (
+            <div className="rail-discovery">
+              <form onSubmit={submit} className="rail-search-form">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <Input
+                  value={artist}
+                  onChange={(event) => setArtist(event.target.value)}
+                  placeholder="Search an artist..."
+                  aria-label="Artist name"
+                  className="search-input"
+                />
+                <Button type="submit" size="sm" disabled={artist.trim().length < 2} aria-label="Search">
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </form>
+              <Button
+                className="spotify-button"
+                onClick={async () => {
+                  setSpotifyError("");
+                  if (spotifyConnected) {
+                    navigate({
+                      search: (previous) => ({
+                        ...previous,
+                        picker: previous.picker === "spotify" ? undefined : "spotify",
+                      }),
+                    });
+                    return;
+                  }
+                  try {
+                    await signInWithSpotify(`${window.location.origin}/?picker=spotify`);
+                  } catch (error) {
+                    setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
+                  }
+                }}
+                disabled={sessionPending || spotifyQuery.isFetching}
+              >
+                <Headphones className="h-4 w-4" />
+                {sessionPending || spotifyQuery.isFetching
+                  ? "Loading Spotify…"
+                  : spotifyConnected
+                    ? search.picker === "spotify"
+                      ? "Hide Spotify artists"
+                      : "Choose from Spotify"
+                    : session
+                      ? "Reconnect Spotify"
+                      : "Import from Spotify"}
+              </Button>
+              {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
+              {artistOptionsQuery.isFetching ? (
+                <p className="choice-status">Finding artists…</p>
+              ) : artistOptionsQuery.error ? (
+                <p className="connect-error" role="alert">{getApiErrorMessage(artistOptionsQuery.error)}</p>
+              ) : search.q && artistOptionsQuery.data ? (
+                <ArtistChoices
+                  label="Choose the artist you meant"
+                  artists={artistOptionsQuery.data.artists}
+                  selectedName={search.artist}
+                  onSelect={(option) => selectArtist(option.name, option.id)}
+                />
+              ) : null}
+              {spotifyQuery.error ? (
+                <p className="connect-error" role="alert">{getApiErrorMessage(spotifyQuery.error)}</p>
+              ) : search.picker === "spotify" && spotifyQuery.data ? (
+                <ArtistChoices
+                  label="Choose from your top artists"
+                  artists={spotifyQuery.data.artists}
+                  selectedName={search.artist}
+                  onSelect={(option) => selectArtist(option.name)}
+                />
               ) : null}
             </div>
-          )}
-        </section>
-      ) : null}
+          ) : null}
 
-      {search.event && !eventsQuery.isFetching ? (
-        <div
-          className="event-modal-backdrop"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeEvent();
-          }}
-        >
-          <section
-            className="event-modal"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="event-modal-title"
-          >
-            <button className="event-modal-close" onClick={closeEvent} aria-label="Close event">
-              <X className="h-5 w-5" />
-            </button>
-            {modalEvent ? (
-              <>
-                <p className="eyebrow">SELECTED STOP</p>
-                <h2 id="event-modal-title">{modalEvent.name}</h2>
-                <p><MapPin className="h-4 w-4" /> {modalEvent.venue.name}, {[modalEvent.venue.city, modalEvent.venue.state, modalEvent.venue.country].filter(Boolean).join(", ")}</p>
-                <p><CalendarDays className="h-4 w-4" /> {formatEventDate(modalEvent)}</p>
-                {modalEvent.url ? <a href={modalEvent.url} target="_blank" rel="noreferrer">View event <ExternalLink className="h-4 w-4" /></a> : null}
-              </>
+          <section className="rail-tour" aria-live="polite">
+            <div className="rail-tour-heading">
+              <div>
+                <p className="eyebrow">{search.artist ? "UPCOMING TOUR" : "CONCERT EXPLORER"}</p>
+                <h2>{search.artist ?? "Your route starts here"}</h2>
+              </div>
+              {search.artist ? <span className="rail-count">{events.length}</span> : null}
+            </div>
+
+            {!search.artist ? (
+              <div className="rail-empty">
+                <MapPin className="h-5 w-5" />
+                <p>Search manually or import your top Spotify artists to map upcoming concerts.</p>
+              </div>
+            ) : eventsQuery.isFetching ? (
+              <div className="rail-empty"><p>Finding upcoming stops…</p></div>
+            ) : eventsQuery.error ? (
+              <p className="error-state" role="alert">{getApiErrorMessage(eventsQuery.error)}</p>
+            ) : events.length === 0 ? (
+              <div className="rail-empty"><p>No mapped shows found yet. Try another artist.</p></div>
             ) : (
-              <>
-                <p className="eyebrow">EVENT UNAVAILABLE</p>
-                <h2 id="event-modal-title">This event is not in the current results.</h2>
-              </>
+              <div className="rail-event-list">
+                {events.map((event, index) => {
+                  const active = event.id === activeEvent?.id;
+                  return (
+                    <article key={event.id} className={active ? "rail-event active" : "rail-event"}>
+                      <button type="button" className="rail-event-main" onClick={() => focusEvent(event.id)}>
+                        <span className="rail-stop-number">{String(index + 1).padStart(2, "0")}</span>
+                        <span className="rail-event-copy">
+                          <small>{formatShortDate(event)} · {event.venue.city ?? event.venue.country ?? event.venue.name}</small>
+                          <strong>{event.name}</strong>
+                        </span>
+                        <MapPin className="h-4 w-4" />
+                      </button>
+                      {active ? (
+                        <div className="rail-event-detail">
+                          <p><MapPin className="h-4 w-4" /> {event.venue.name}, {[event.venue.city, event.venue.state, event.venue.country].filter(Boolean).join(", ")}</p>
+                          <p><CalendarDays className="h-4 w-4" /> {formatEventDate(event)}</p>
+                          {event.url ? <a href={event.url} target="_blank" rel="noreferrer">View event <ExternalLink className="h-4 w-4" /></a> : null}
+                        </div>
+                      ) : null}
+                    </article>
+                  );
+                })}
+              </div>
             )}
           </section>
-        </div>
-      ) : null}
+        </aside>
+      </main>
     </div>
   );
 }
