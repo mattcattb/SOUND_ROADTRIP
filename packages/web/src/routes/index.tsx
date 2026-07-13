@@ -39,6 +39,7 @@ function ExplorePage() {
   }>();
   const [activeEventId, setActiveEventId] = useState<string>();
   const [spotifyError, setSpotifyError] = useState("");
+  const resultsRef = useRef<HTMLElement>(null);
 
   const artistOptionsQuery = useQuery({
     queryKey: ["artist-options", artistLookup],
@@ -80,6 +81,16 @@ function ExplorePage() {
       setActiveEventId(events[0].id);
     }
   }, [activeEventId, events]);
+
+  useEffect(() => {
+    if (
+      selectedArtist &&
+      !eventsQuery.isFetching &&
+      (eventsQuery.data || eventsQuery.error)
+    ) {
+      resultsRef.current?.scrollIntoView({behavior: "smooth", block: "start"});
+    }
+  }, [eventsQuery.data, eventsQuery.error, eventsQuery.isFetching, selectedArtist]);
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
@@ -187,7 +198,7 @@ function ExplorePage() {
       </section>
 
       {selectedArtist && !eventsQuery.isFetching ? (
-        <section className="results-drawer" aria-live="polite">
+        <section ref={resultsRef} className="results-drawer" aria-live="polite">
           <div className="results-heading">
             <div>
               <p className="eyebrow">SELECTED ARTIST</p>

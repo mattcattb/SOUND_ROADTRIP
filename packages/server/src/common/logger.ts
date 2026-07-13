@@ -19,7 +19,6 @@ const pinoInstance = pino({
     paths: [
       "req.headers.cookie",
       "req.headers.authorization",
-      'res.headers["set-cookie"]',
     ],
     censor: "[Redacted]",
   },
@@ -35,6 +34,15 @@ const pinoInstance = pino({
   serializers: {
     err: pino.stdSerializers.err,
     error: pino.stdSerializers.err,
+    res: (response) =>
+      response instanceof Response
+        ? {
+            status: response.status,
+            headers: Object.fromEntries(
+              [...response.headers].filter(([name]) => name !== "set-cookie"),
+            ),
+          }
+        : response,
   },
   transport,
 });
