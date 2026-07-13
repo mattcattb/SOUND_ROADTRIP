@@ -1,6 +1,10 @@
 import {afterEach, expect, mock, test} from "bun:test";
 import {appEnv} from "../common/env";
-import {getSpotifyArtists, searchArtistOptions} from "./tours.service";
+import {
+  featuredArtists,
+  getSpotifyArtists,
+  searchArtistOptions,
+} from "./tours.service";
 
 const originalFetch = globalThis.fetch;
 const originalClientId = appEnv.SPOTIFY_CLIENT_ID;
@@ -10,6 +14,17 @@ afterEach(() => {
   globalThis.fetch = originalFetch;
   appEnv.SPOTIFY_CLIENT_ID = originalClientId;
   appEnv.SPOTIFY_CLIENT_SECRET = originalClientSecret;
+});
+
+test("provides curated artists without an upstream request", () => {
+  expect(featuredArtists).toEqual([
+    {id: "3l0CmX0FuQjFxr8SK7Vqag", name: "Clairo"},
+    {id: "6vWDO969PvNqNYHIOW5v0m", name: "Beyoncé"},
+    {id: "2YZyLoL8N0Wb9xBt1NhZWg", name: "Kendrick Lamar"},
+    {id: "6qqNVTkY8uBg9cP3Jd7DAH", name: "Billie Eilish"},
+    {id: "4q3ewBCX7sLwd24euuV69X", name: "Bad Bunny"},
+    {id: "7GlBOeep6PqTfFi59PTUUN", name: "Chappell Roan"},
+  ]);
 });
 
 test("searches Spotify for artist choices", async () => {

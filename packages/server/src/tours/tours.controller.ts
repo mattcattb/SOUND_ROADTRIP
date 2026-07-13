@@ -6,6 +6,7 @@ import {auth} from "../lib/auth";
 import {
   artistOptionsSchema,
   artistSearchSchema,
+  featuredArtists,
   getSpotifyArtists,
   searchArtistOptions,
   searchArtistTour,
@@ -13,6 +14,7 @@ import {
 } from "./tours.service";
 
 export const toursController = createRouter()
+  .get("/artists/featured", (c) => c.json({artists: featuredArtists}))
   .get("/artists/search", zValidator("query", artistOptionsSchema), async (c) => {
     return c.json(await searchArtistOptions(c.req.valid("query").query));
   })

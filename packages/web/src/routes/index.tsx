@@ -3,7 +3,6 @@ import {useQuery} from "@tanstack/react-query";
 import {DetailedError, parseResponse, type InferResponseType} from "hono/client";
 import {useEffect, useState} from "react";
 import {
-  ArrowRight,
   CalendarDays,
   ChevronDown,
   ExternalLink,
@@ -19,6 +18,7 @@ import {signInWithSpotify, useSession} from "../lib/auth";
 import {rpcClient} from "../lib/rpc.client";
 
 const artistOptionsApi = rpcClient.tours.artists.search;
+const featuredArtistsApi = rpcClient.tours.artists.featured;
 const spotifyArtistsApi = rpcClient.tours.artists.spotify;
 const eventsApi = rpcClient.tours.events;
 type EventResult = InferResponseType<typeof eventsApi.$get, 200>;
@@ -53,17 +53,33 @@ function ExplorePage() {
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
   const [artist, setArtist] = useState("");
+  const [debouncedArtist, setDebouncedArtist] = useState("");
   const [spotifyError, setSpotifyError] = useState("");
   const [discoveryOpen, setDiscoveryOpen] = useState(!search.artist);
   const [focusRequest, setFocusRequest] = useState(0);
 
+  const normalizedArtist = artist.trim();
   const artistOptionsQuery = useQuery({
-    queryKey: ["artist-options", search.q],
-    queryFn: () => parseResponse(artistOptionsApi.$get({query: {query: search.q ?? ""}})),
-    enabled: Boolean(search.q),
+    queryKey: ["artist-options", debouncedArtist.toLowerCase()],
+    queryFn: ({signal}) => parseResponse(artistOptionsApi.$get(
+      {query: {query: debouncedArtist}},
+      {init: {signal}},
+    )),
+    enabled:
+      discoveryOpen &&
+      debouncedArtist.length >= 2 &&
+      normalizedArtist === debouncedArtist,
     retry: false,
     staleTime: 1000 * 60 * 60 * 6,
     gcTime: 1000 * 60 * 60 * 24,
+  });
+
+  const featuredArtistsQuery = useQuery({
+    queryKey: ["featured-artists"],
+    queryFn: () => parseResponse(featuredArtistsApi.$get()),
+    enabled: discoveryOpen && normalizedArtist.length === 0,
+    retry: false,
+    staleTime: Infinity,
   });
 
   const spotifyQuery = useQuery({
@@ -92,20 +108,15 @@ function ExplorePage() {
     setArtist(search.q ?? search.artist ?? "");
   }, [search.artist, search.q]);
 
-  const submit = (event: React.FormEvent) => {
-    event.preventDefault();
-    const value = artist.trim();
-    if (value.length >= 2) {
-      navigate({
-        search: (previous) => ({
-          ...previous,
-          q: value,
-          artist: undefined,
-          event: undefined,
-        }),
-      });
+  useEffect(() => {
+    if (normalizedArtist.length < 2) {
+      setDebouncedArtist("");
+      return;
     }
-  };
+
+    const timeout = window.setTimeout(() => setDebouncedArtist(normalizedArtist), 300);
+    return () => window.clearTimeout(timeout);
+  }, [normalizedArtist]);
 
   const selectArtist = (name: string) => {
     setDiscoveryOpen(false);
@@ -177,7 +188,7 @@ function ExplorePage() {
 
           {discoveryOpen ? (
             <div className="rail-discovery">
-              <form onSubmit={submit} className="rail-search-form">
+              <div className="rail-search-form" role="search">
                 <Search className="h-4 w-4 text-muted-foreground" />
                 <Input
                   value={artist}
@@ -186,10 +197,7 @@ function ExplorePage() {
                   aria-label="Artist name"
                   className="search-input"
                 />
-                <Button type="submit" size="sm" disabled={artist.trim().length < 2} aria-label="Search">
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </form>
+              </div>
               <Button
                 className="spotify-button"
                 onClick={async () => {
@@ -223,14 +231,29 @@ function ExplorePage() {
                       : "Import from Spotify"}
               </Button>
               {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
-              {artistOptionsQuery.isFetching ? (
+              {normalizedArtist.length >= 2 && normalizedArtist !== debouncedArtist ? (
                 <p className="choice-status">Finding artists…</p>
-              ) : artistOptionsQuery.error ? (
+              ) : normalizedArtist.length >= 2 && artistOptionsQuery.isFetching ? (
+                <p className="choice-status">Finding artists…</p>
+              ) : normalizedArtist.length >= 2 && artistOptionsQuery.error ? (
                 <p className="connect-error" role="alert">{getApiErrorMessage(artistOptionsQuery.error)}</p>
-              ) : search.q && artistOptionsQuery.data ? (
+              ) : normalizedArtist === debouncedArtist && artistOptionsQuery.data ? (
                 <ArtistChoices
                   label="Choose the artist you meant"
                   artists={artistOptionsQuery.data.artists}
+                  selectedName={search.artist}
+                  onSelect={(option) => selectArtist(option.name)}
+                />
+              ) : normalizedArtist.length === 1 ? (
+                <p className="choice-status">Keep typing to search Spotify…</p>
+              ) : normalizedArtist.length === 0 && featuredArtistsQuery.isFetching ? (
+                <p className="choice-status">Loading featured artists…</p>
+              ) : normalizedArtist.length === 0 && featuredArtistsQuery.error ? (
+                <p className="connect-error" role="alert">{getApiErrorMessage(featuredArtistsQuery.error)}</p>
+              ) : normalizedArtist.length === 0 && featuredArtistsQuery.data ? (
+                <ArtistChoices
+                  label="Featured artists"
+                  artists={featuredArtistsQuery.data.artists}
                   selectedName={search.artist}
                   onSelect={(option) => selectArtist(option.name)}
                 />
