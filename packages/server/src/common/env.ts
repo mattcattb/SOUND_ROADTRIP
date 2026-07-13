@@ -1,18 +1,18 @@
 import {z} from "zod";
 
 const spotifyEnvSchema = z.object({
-  SPOTIFY_CLIENT_ID: z.string().optional(),
-  SPOTIFY_CLIENT_SECRET: z.string().optional(),
+  SPOTIFY_CLIENT_ID: z.string().trim().optional(),
+  SPOTIFY_CLIENT_SECRET: z.string().trim().optional(),
 });
 
 const ticketmasterEnvSchema = z.object({
-  TICKETMASTER_API_KEY: z.string().optional(),
+  TICKETMASTER_API_KEY: z.string().trim().optional(),
 });
 
 const appEnvSchema = z.object({
   ...spotifyEnvSchema.shape,
   ...ticketmasterEnvSchema.shape,
-  BETTER_AUTH_SECRET: z.string().min(32).optional(),
+  BETTER_AUTH_SECRET: z.string().trim().min(32).optional(),
   BETTER_AUTH_URL: z.string().url().default("http://127.0.0.1:3000"),
 
   LOG_LEVEL: z.string().optional(),
