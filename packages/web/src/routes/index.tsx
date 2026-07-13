@@ -11,7 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import {ArtistChoices} from "../components/artist-choices";
-import {RoadtripGlobe} from "../components/roadtrip-globe";
+import {RoadtripMap} from "../components/roadtrip-map";
 import {TopArtistPicker} from "../components/top-artist-picker";
 import {Input} from "../components/ui";
 import {signInWithSpotify, useSession} from "../lib/auth";
@@ -121,6 +121,7 @@ function ExplorePage() {
   const selectArtist = (name: string) => {
     setDiscoveryOpen(false);
     if (search.artist === name) return;
+    setFocusRequest(0);
 
     navigate({
       search: (previous) => ({
@@ -154,13 +155,13 @@ function ExplorePage() {
 
       <main className="explorer-workspace">
         <section className="globe-stage" aria-label="Interactive concert map">
-          <RoadtripGlobe
+          <RoadtripMap
             events={events}
             activeEventId={activeEvent?.id}
             focusRequest={focusRequest}
             onSelect={focusEvent}
           />
-          <div className="globe-vignette" />
+          <div className="map-vignette" />
           {!search.artist ? (
             <div className="map-intro">
               <p className="eyebrow">TOURS, MAPPED</p>

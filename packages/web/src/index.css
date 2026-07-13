@@ -59,21 +59,28 @@
 .brand-mark { display: grid; width: 32px; height: 32px; place-items: center; border: 1px solid rgba(213,255,114,.45); border-radius: 50%; color: #d5ff72; background: rgba(213,255,114,.08); }
 .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #d5ff72; box-shadow: 0 0 12px #d5ff72; }
 .explorer-workspace { display: grid; grid-template-columns: minmax(0,1fr) minmax(340px,410px); gap: 18px; height: 100%; padding: 72px 18px 18px; }
-.globe-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid rgba(206,235,220,.1); border-radius: 22px; background: radial-gradient(circle at 54% 48%,#12372e 0,#091b16 38%,#050b0a 72%); }
-.globe-canvas { position: absolute; inset: 0; }
-.globe-canvas canvas { cursor: grab; }
-.globe-canvas canvas:active { cursor: grabbing; }
-.globe-vignette { pointer-events: none; position: absolute; inset: 0; background: radial-gradient(circle at 52% 50%,transparent 48%,rgba(3,9,7,.48) 100%),linear-gradient(0deg,rgba(4,10,8,.75),transparent 25%); }
-.globe-hover-card { pointer-events: none; position: absolute; z-index: 7; display: grid; width: 250px; gap: 7px; padding: 15px 16px; border: 1px solid rgba(213,255,114,.35); border-radius: 13px; color: #edf3e9; background: rgba(9,22,18,.94); box-shadow: 0 18px 48px rgba(0,0,0,.48); transform: translate(-50%,calc(-100% - 16px)); backdrop-filter: blur(14px); }
-.globe-hover-card::after { position: absolute; bottom: -6px; left: calc(50% - 5px); width: 10px; height: 10px; border-right: 1px solid rgba(213,255,114,.35); border-bottom: 1px solid rgba(213,255,114,.35); background: #0a1713; content: ""; transform: rotate(45deg); }
-.globe-hover-card .eyebrow { margin-bottom: 0; font-size: 9px; }
-.globe-hover-card strong { overflow: hidden; font-family: var(--font-display); font-size: 20px; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
-.globe-hover-card span { display: flex; align-items: center; gap: 7px; color: #99a6a0; font-size: 11px; }
+.globe-stage { position: relative; min-width: 0; min-height: 0; overflow: hidden; border: 1px solid rgba(206,235,220,.1); border-radius: 22px; background: #ded5c3; }
+.roadtrip-map { position: absolute; inset: 0; }
+.roadtrip-map .maplibregl-map { width: 100%; height: 100%; font-family: var(--font-body); }
+.roadtrip-map .maplibregl-canvas { filter: sepia(.16) saturate(.74) contrast(.94); }
+.roadtrip-map .maplibregl-ctrl-group { overflow: hidden; border: 1px solid rgba(47,71,59,.25); border-radius: 10px; box-shadow: 0 5px 16px rgba(39,52,44,.15); }
+.roadtrip-map .maplibregl-ctrl-group button { background-color: #f5efe2; }
+.roadtrip-map .maplibregl-ctrl-attrib { color: #536159; background: rgba(245,239,226,.82); }
+.map-vignette { pointer-events: none; position: absolute; inset: 0; z-index: 2; background: linear-gradient(90deg,rgba(239,231,214,.8),transparent 34%),linear-gradient(0deg,rgba(238,228,209,.45),transparent 28%); }
+.map-stop { display: grid; width: 30px; height: 30px; place-items: center; border: 3px solid #f5efe2; border-radius: 50% 50% 50% 12%; color: #f8f3e8; background: #365e4e; box-shadow: 0 4px 12px rgba(30,50,40,.28); cursor: pointer; font-family: var(--font-display); font-size: 11px; transform: rotate(-45deg); transition: transform .18s,background .18s; }
+.map-stop:hover,.map-stop:focus-visible,.map-stop.active { z-index: 2; outline: 0; background: #b96346; transform: rotate(-45deg) scale(1.16); }
+.map-stop > span { transform: rotate(45deg); }
+.map-stop-popup .maplibregl-popup-content { width: 244px; padding: 0; border: 1px solid rgba(47,71,59,.2); border-radius: 13px; color: #26372f; background: #f7f0e3; box-shadow: 0 16px 38px rgba(39,52,44,.24); }
+.map-stop-popup .maplibregl-popup-tip { border-top-color: #f7f0e3 !important; }
+.map-stop-popup article { display: grid; gap: 7px; padding: 14px 15px; }
+.map-stop-popup .eyebrow { margin: 0; color: #a44f37; font-size: 9px; }
+.map-stop-popup strong { overflow: hidden; font-family: var(--font-display); font-size: 18px; line-height: 1.05; text-overflow: ellipsis; text-transform: uppercase; white-space: nowrap; }
+.map-stop-popup span { display: flex; align-items: center; gap: 7px; color: #69746e; font-size: 10px; }
 .eyebrow { margin: 0 0 14px; color: #d5ff72; font-size: 11px; font-weight: 800; letter-spacing: .2em; }
 .map-intro { position: absolute; z-index: 4; left: clamp(24px,4vw,58px); bottom: clamp(28px,5vw,64px); width: min(440px,calc(100% - 48px)); }
 .map-intro .eyebrow { margin-bottom: 10px; }
-.map-intro h1 { margin: 0; font-family: var(--font-display); font-size: clamp(48px,7vw,86px); line-height: .86; letter-spacing: -.045em; text-transform: uppercase; }
-.map-intro > p:last-child { max-width: 360px; margin: 16px 0 0; color: #93a09a; font-size: 13px; line-height: 1.55; }
+.map-intro h1 { margin: 0; color: #22372e; font-family: var(--font-display); font-size: clamp(48px,7vw,86px); line-height: .86; letter-spacing: -.045em; text-transform: uppercase; }
+.map-intro > p:last-child { max-width: 360px; margin: 16px 0 0; color: #5e6c65; font-size: 13px; line-height: 1.55; }
 .map-state { position: absolute; z-index: 8; right: 24px; bottom: 22px; padding: 9px 12px; border: 1px solid rgba(213,255,114,.22); border-radius: 999px; color: #d5ff72; background: rgba(8,19,16,.85); font-size: 10px; font-weight: 800; letter-spacing: .1em; }
 .concert-rail { z-index: 9; display: flex; min-width: 0; min-height: 0; flex-direction: column; overflow: hidden; border: 1px solid rgba(206,235,220,.15); border-radius: 22px; background: rgba(9,20,17,.96); box-shadow: 0 30px 80px rgba(0,0,0,.32); }
 .rail-discovery-toggle { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: 11px; width: 100%; padding: 15px 17px; border: 0; border-bottom: 1px solid rgba(206,235,220,.11); color: #eaf0e7; text-align: left; background: rgba(18,35,29,.72); cursor: pointer; }
@@ -156,11 +163,11 @@
   .app-bar { height: 64px; }
   .explorer-workspace { grid-template-rows: minmax(390px,49svh) minmax(520px,auto); padding-top: 60px; }
   .globe-stage { min-height: 390px; }
-  .globe-canvas { opacity: .9; }
+  .roadtrip-map { opacity: .96; }
   .map-intro { left: 22px; bottom: 24px; width: calc(100% - 44px); }
   .map-intro h1 { font-size: 52px; }
   .map-intro > p:last-child { max-width: 290px; font-size: 11px; }
-  .globe-hover-card { width: 220px; }
+  .map-stop-popup .maplibregl-popup-content { width: 220px; }
   .rail-tour-heading h2 { font-size: 27px; }
   .top-artist-grid { grid-template-columns: 1fr; }
 }
