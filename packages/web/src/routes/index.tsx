@@ -35,6 +35,7 @@ function ExplorePage() {
     queryKey: ["artist-tour", search],
     queryFn: () => parseResponse(searchApi.$get({query: {artist: search}})),
     enabled: search.length >= 2,
+    retry: false,
     staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60 * 24,
   });

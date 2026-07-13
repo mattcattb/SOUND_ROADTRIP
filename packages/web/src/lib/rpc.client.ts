@@ -7,7 +7,7 @@ export const API_BASE_URL = rawBaseUrl.startsWith("http")
   ? rawBaseUrl
   : `http://${rawBaseUrl}`;
 
-export const rpcClient = hc<AppType>(API_BASE_URL, {
+export const rpcClient = hc<AppType>(`${API_BASE_URL.replace(/\/$/, "")}/api`, {
   init: {
     credentials: "include",
   },
