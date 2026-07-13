@@ -89,7 +89,7 @@ test("loads Spotify artists without searching for concerts", async () => {
         external_urls: {spotify: "https://open.spotify.com/artist/1"},
       }],
       href: "https://api.spotify.com/v1/me/top/artists",
-      limit: 5,
+      limit: 20,
       next: null,
       offset: 0,
       previous: null,
@@ -97,9 +97,10 @@ test("loads Spotify artists without searching for concerts", async () => {
     });
   }) as unknown as typeof fetch;
 
-  const result = await getSpotifyArtists("access-token", {limit: 5});
+  const result = await getSpotifyArtists("access-token", {limit: 20});
 
   expect(result.artists.map((artist) => artist.name)).toEqual(["Clairo"]);
   expect(urls).toHaveLength(1);
   expect(urls[0].hostname).toBe("api.spotify.com");
+  expect(urls[0].searchParams.get("limit")).toBe("20");
 });

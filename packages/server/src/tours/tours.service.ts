@@ -3,7 +3,7 @@ import {getSpotifyTopArtists, searchSpotifyArtists} from "../lib/spotify";
 import {searchTicketmasterArtistEvents} from "../lib/ticketmaster";
 
 export const tourQuerySchema = z.object({
-  limit: z.coerce.number().int().min(1).max(10).default(5),
+  limit: z.coerce.number().int().min(1).max(20).default(20),
 });
 
 export const artistSearchSchema = z.object({

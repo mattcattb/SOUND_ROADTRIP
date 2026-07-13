@@ -6,14 +6,14 @@ import {
   CalendarDays,
   ChevronDown,
   ExternalLink,
-  Headphones,
   MapPin,
   Search,
   Sparkles,
 } from "lucide-react";
 import {ArtistChoices} from "../components/artist-choices";
 import {RoadtripGlobe} from "../components/roadtrip-globe";
-import {Button, Input} from "../components/ui";
+import {TopArtistPicker} from "../components/top-artist-picker";
+import {Input} from "../components/ui";
 import {signInWithSpotify, useSession} from "../lib/auth";
 import {rpcClient} from "../lib/rpc.client";
 
@@ -84,7 +84,7 @@ function ExplorePage() {
 
   const spotifyQuery = useQuery({
     queryKey: ["spotify-artists", session?.user.id],
-    queryFn: () => parseResponse(spotifyArtistsApi.$get({query: {limit: "5"}})),
+    queryFn: () => parseResponse(spotifyArtistsApi.$get({query: {limit: "20"}})),
     enabled: Boolean(session),
     retry: false,
     staleTime: 1000 * 60 * 30,
@@ -198,9 +198,13 @@ function ExplorePage() {
                   className="search-input"
                 />
               </div>
-              <Button
-                className="spotify-button"
-                onClick={async () => {
+              <TopArtistPicker
+                artists={spotifyQuery.data?.artists}
+                selectedName={search.artist}
+                open={search.picker === "spotify"}
+                loading={sessionPending || spotifyQuery.isFetching}
+                connected={spotifyConnected}
+                onToggle={async () => {
                   setSpotifyError("");
                   if (spotifyConnected) {
                     navigate({
@@ -217,19 +221,8 @@ function ExplorePage() {
                     setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
                   }
                 }}
-                disabled={sessionPending || spotifyQuery.isFetching}
-              >
-                <Headphones className="h-4 w-4" />
-                {sessionPending || spotifyQuery.isFetching
-                  ? "Loading Spotify…"
-                  : spotifyConnected
-                    ? search.picker === "spotify"
-                      ? "Hide Spotify artists"
-                      : "Choose from Spotify"
-                    : session
-                      ? "Reconnect Spotify"
-                      : "Import from Spotify"}
-              </Button>
+                onSelect={(option) => selectArtist(option.name)}
+              />
               {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
               {normalizedArtist.length >= 2 && normalizedArtist !== debouncedArtist ? (
                 <p className="choice-status">Finding artists…</p>
@@ -256,17 +249,11 @@ function ExplorePage() {
                   artists={featuredArtistsQuery.data.artists}
                   selectedName={search.artist}
                   onSelect={(option) => selectArtist(option.name)}
+                  layout="grid"
                 />
               ) : null}
               {spotifyQuery.error ? (
                 <p className="connect-error" role="alert">{getApiErrorMessage(spotifyQuery.error)}</p>
-              ) : search.picker === "spotify" && spotifyQuery.data ? (
-                <ArtistChoices
-                  label="Choose from your top artists"
-                  artists={spotifyQuery.data.artists}
-                  selectedName={search.artist}
-                  onSelect={(option) => selectArtist(option.name)}
-                />
               ) : null}
             </div>
           ) : null}
