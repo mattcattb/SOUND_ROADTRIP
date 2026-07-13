@@ -47,6 +47,7 @@ function ExplorePage() {
     staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60 * 24,
   });
+  const spotifyConnected = Boolean(session && spotifyQuery.data);
 
   const data: SearchResult | Roadtrip | undefined = search ? searchQuery.data : spotifyQuery.data;
   const events = data?.events ?? [];
@@ -115,10 +116,16 @@ function ExplorePage() {
                 setSpotifyError(error instanceof Error ? error.message : "Spotify could not be connected.");
               }
             }}
-            disabled={sessionPending || Boolean(session)}
+            disabled={sessionPending || spotifyQuery.isFetching || spotifyConnected}
           >
             <Headphones className="h-4 w-4" />
-            {session ? "Spotify connected" : "Import my Spotify"}
+            {sessionPending || spotifyQuery.isFetching
+              ? "Loading Spotify…"
+              : spotifyConnected
+                ? "Spotify connected"
+                : session
+                  ? "Reconnect Spotify"
+                  : "Import my Spotify"}
           </Button>
           <p className="privacy-note">Read-only access · your listening data stays yours</p>
           {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
