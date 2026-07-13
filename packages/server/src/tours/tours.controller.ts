@@ -4,19 +4,24 @@ import {authMiddleware} from "../auth/auth.middleware";
 import {UnauthorizedException} from "../common/errors";
 import {auth} from "../lib/auth";
 import {
+  artistOptionsSchema,
   artistSearchSchema,
-  getRoadtrip,
+  getSpotifyArtists,
+  searchArtistOptions,
   searchArtistTour,
   tourQuerySchema,
 } from "./tours.service";
 
 export const toursController = createRouter()
-  .get("/search", zValidator("query", artistSearchSchema), async (c) => {
-    const {artist} = c.req.valid("query");
-    return c.json(await searchArtistTour(artist));
+  .get("/artists/search", zValidator("query", artistOptionsSchema), async (c) => {
+    return c.json(await searchArtistOptions(c.req.valid("query").query));
+  })
+  .get("/events", zValidator("query", artistSearchSchema), async (c) => {
+    const {artist, artistId} = c.req.valid("query");
+    return c.json(await searchArtistTour(artist, artistId));
   })
   .get(
-    "/roadtrip",
+    "/artists/spotify",
     authMiddleware,
     zValidator("query", tourQuerySchema),
     async (c) => {
@@ -34,10 +39,10 @@ export const toursController = createRouter()
         throw new UnauthorizedException("Connect Spotify to build a tour map.");
       }
 
-      const roadtrip = await getRoadtrip(
+      const artists = await getSpotifyArtists(
         token.accessToken,
         c.req.valid("query"),
       );
-      return c.json(roadtrip);
+      return c.json(artists);
     },
   );

@@ -16,44 +16,64 @@ import {Button, Input} from "../components/ui";
 import {signInWithSpotify, useSession} from "../lib/auth";
 import {rpcClient} from "../lib/rpc.client";
 
-const searchApi = rpcClient.tours.search;
-const roadtripApi = rpcClient.tours.roadtrip;
-type SearchResult = InferResponseType<typeof searchApi.$get>;
-type Roadtrip = InferResponseType<typeof roadtripApi.$get>;
-type TourEvent = SearchResult["events"][number];
+const artistOptionsApi = rpcClient.tours.artists.search;
+const spotifyArtistsApi = rpcClient.tours.artists.spotify;
+const eventsApi = rpcClient.tours.events;
+type ArtistOptions = InferResponseType<typeof artistOptionsApi.$get, 200>;
+type SpotifyArtists = InferResponseType<typeof spotifyArtistsApi.$get, 200>;
+type EventResult = InferResponseType<typeof eventsApi.$get, 200>;
+type ArtistChoice =
+  | ArtistOptions["artists"][number]
+  | SpotifyArtists["artists"][number];
+type TourEvent = EventResult["events"][number];
 
 export const Route = createFileRoute("/")({component: ExplorePage});
 
 function ExplorePage() {
   const {data: session, isPending: sessionPending} = useSession();
   const [artist, setArtist] = useState("");
-  const [search, setSearch] = useState("");
+  const [artistLookup, setArtistLookup] = useState("");
+  const [selectedArtist, setSelectedArtist] = useState<{
+    name: string;
+    ticketmasterId?: string;
+  }>();
   const [activeEventId, setActiveEventId] = useState<string>();
   const [spotifyError, setSpotifyError] = useState("");
 
-  const searchQuery = useQuery({
-    queryKey: ["artist-tour", search],
-    queryFn: () => parseResponse(searchApi.$get({query: {artist: search}})),
-    enabled: search.length >= 2,
+  const artistOptionsQuery = useQuery({
+    queryKey: ["artist-options", artistLookup],
+    queryFn: () => parseResponse(artistOptionsApi.$get({query: {query: artistLookup}})),
+    enabled: artistLookup.length >= 2,
     retry: false,
     staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60 * 24,
   });
 
   const spotifyQuery = useQuery({
-    queryKey: ["spotify-roadtrip", session?.user.id],
-    queryFn: () => parseResponse(roadtripApi.$get({query: {limit: "5"}})),
-    enabled: Boolean(session && !search),
+    queryKey: ["spotify-artists", session?.user.id],
+    queryFn: () => parseResponse(spotifyArtistsApi.$get({query: {limit: "5"}})),
+    enabled: Boolean(session),
+    retry: false,
+    staleTime: 1000 * 60 * 30,
+    gcTime: 1000 * 60 * 60 * 24,
+  });
+
+  const eventsQuery = useQuery({
+    queryKey: ["artist-events", selectedArtist],
+    queryFn: () => parseResponse(eventsApi.$get({
+      query: selectedArtist?.ticketmasterId
+        ? {artist: selectedArtist.name, artistId: selectedArtist.ticketmasterId}
+        : {artist: selectedArtist?.name ?? ""},
+    })),
+    enabled: Boolean(selectedArtist),
+    retry: false,
     staleTime: 1000 * 60 * 30,
     gcTime: 1000 * 60 * 60 * 24,
   });
   const spotifyConnected = Boolean(session && spotifyQuery.data);
 
-  const data: SearchResult | Roadtrip | undefined = search ? searchQuery.data : spotifyQuery.data;
-  const events = data?.events ?? [];
+  const events = eventsQuery.data?.events ?? [];
   const activeEvent = events.find((event) => event.id === activeEventId) ?? events[0];
-  const loading = search ? searchQuery.isFetching : spotifyQuery.isFetching;
-  const error = search ? searchQuery.error : spotifyQuery.error;
 
   useEffect(() => {
     if (events.length && !events.some((event) => event.id === activeEventId)) {
@@ -64,7 +84,17 @@ function ExplorePage() {
   const submit = (event: React.FormEvent) => {
     event.preventDefault();
     const value = artist.trim();
-    if (value.length >= 2) setSearch(value);
+    if (value.length >= 2) {
+      setArtistLookup(value);
+      setSelectedArtist(undefined);
+      setActiveEventId(undefined);
+    }
+  };
+
+  const selectArtist = (name: string, ticketmasterId?: string) => {
+    setSelectedArtist({name, ticketmasterId});
+    setArtist(name);
+    setActiveEventId(undefined);
   };
 
   return (
@@ -102,7 +132,7 @@ function ExplorePage() {
               className="search-input"
             />
             <Button type="submit" size="sm" disabled={artist.trim().length < 2} aria-label="Search">
-              Explore <ArrowRight className="h-4 w-4" />
+              Find artist <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
           <div className="or-divider"><span>OR</span></div>
@@ -129,23 +159,45 @@ function ExplorePage() {
           </Button>
           <p className="privacy-note">Read-only access · your listening data stays yours</p>
           {spotifyError ? <p className="connect-error" role="alert">{spotifyError}</p> : null}
+          {artistOptionsQuery.isFetching ? (
+            <p className="choice-status">Finding artists…</p>
+          ) : artistOptionsQuery.error ? (
+            <p className="connect-error" role="alert">{getApiErrorMessage(artistOptionsQuery.error)}</p>
+          ) : artistLookup && artistOptionsQuery.data ? (
+            <ArtistChoices
+              label="Choose the artist you meant"
+              artists={artistOptionsQuery.data.artists}
+              selectedName={selectedArtist?.name}
+              onSelect={(option) => selectArtist(option.name, option.id)}
+            />
+          ) : null}
+          {spotifyQuery.error ? (
+            <p className="connect-error" role="alert">{getApiErrorMessage(spotifyQuery.error)}</p>
+          ) : spotifyQuery.data ? (
+            <ArtistChoices
+              label="Choose from your top artists"
+              artists={spotifyQuery.data.artists}
+              selectedName={selectedArtist?.name}
+              onSelect={(option) => selectArtist(option.name)}
+            />
+          ) : null}
         </div>
 
-        {loading ? <div className="map-state">Plotting tour dates…</div> : null}
+        {eventsQuery.isFetching ? <div className="map-state">Plotting tour dates…</div> : null}
       </section>
 
-      {(search || session) && !loading ? (
+      {selectedArtist && !eventsQuery.isFetching ? (
         <section className="results-drawer" aria-live="polite">
           <div className="results-heading">
             <div>
-              <p className="eyebrow">{search ? "ARTIST SEARCH" : "FROM YOUR TOP ARTISTS"}</p>
-              <h2>{search || "Your Spotify roadtrip"}</h2>
+              <p className="eyebrow">SELECTED ARTIST</p>
+              <h2>{selectedArtist.name}</h2>
             </div>
             <div className="result-count"><strong>{events.length}</strong> upcoming shows</div>
           </div>
 
-          {error ? (
-            <p className="error-state" role="alert">{getApiErrorMessage(error)}</p>
+          {eventsQuery.error ? (
+            <p className="error-state" role="alert">{getApiErrorMessage(eventsQuery.error)}</p>
           ) : events.length === 0 ? (
             <p className="empty-state">No mapped shows found yet. Try another artist.</p>
           ) : (
@@ -176,6 +228,40 @@ function ExplorePage() {
           )}
         </section>
       ) : null}
+    </div>
+  );
+}
+
+function ArtistChoices({
+  label,
+  artists,
+  selectedName,
+  onSelect,
+}: {
+  label: string;
+  artists: ArtistChoice[];
+  selectedName?: string;
+  onSelect: (artist: ArtistChoice) => void;
+}) {
+  return (
+    <div className="artist-choices">
+      <p>{label}</p>
+      {artists.length ? (
+        <div className="artist-choice-list">
+          {artists.map((artist) => (
+            <button
+              key={artist.id}
+              type="button"
+              className={artist.name === selectedName ? "artist-choice selected" : "artist-choice"}
+              onClick={() => onSelect(artist)}
+            >
+              {artist.name}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <span>No matching artists found.</span>
+      )}
     </div>
   );
 }

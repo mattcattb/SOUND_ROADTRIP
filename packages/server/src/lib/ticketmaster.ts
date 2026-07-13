@@ -1,7 +1,11 @@
 import {z} from "zod";
 import {appEnv} from "../common/env";
 import {ServiceException, UpstreamServiceException} from "../common/errors";
-import type {ConcertProvider} from "./concert-provider";
+import type {
+  ConcertArtist,
+  ConcertProvider,
+  ConcertSearchResult,
+} from "./concert-provider";
 
 const ticketmasterEventSchema = z.object({
   id: z.string(),
@@ -64,13 +68,71 @@ const normalizeArtistName = (value: string) =>
 
 const isTicketmasterConfigured = () => Boolean(appEnv.TICKETMASTER_API_KEY);
 
+const ticketmasterRequestIntervalMs = appEnv.NODE_ENV === "test" ? 5 : 225;
+let ticketmasterRequestQueue = Promise.resolve();
+let nextTicketmasterRequestAt = 0;
+const artistCache = new Map<string, CacheEntry<ConcertArtist[]>>();
+const eventCache = new Map<string, CacheEntry<ConcertSearchResult>>();
+const maxCacheEntries = 500;
+
+interface CacheEntry<T> {
+  expiresAt: number;
+  value: Promise<T>;
+}
+
+const getCached = <T>(
+  cache: Map<string, CacheEntry<T>>,
+  key: string,
+  ttlMs: number,
+  load: () => Promise<T>,
+) => {
+  const cached = cache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+  if (cached) cache.delete(key);
+
+  if (cache.size >= maxCacheEntries) {
+    const oldestKey = cache.keys().next().value;
+    if (oldestKey) cache.delete(oldestKey);
+  }
+
+  const value = load().catch((error) => {
+    cache.delete(key);
+    throw error;
+  });
+  cache.set(key, {expiresAt: Date.now() + ttlMs, value});
+  return value;
+};
+
+export const clearTicketmasterCache = () => {
+  artistCache.clear();
+  eventCache.clear();
+};
+
+const scheduleTicketmasterRequest = <T>(request: () => Promise<T>) => {
+  const scheduled = ticketmasterRequestQueue.then(async () => {
+    const waitMs = Math.max(0, nextTicketmasterRequestAt - Date.now());
+    if (waitMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, waitMs));
+    }
+    nextTicketmasterRequestAt = Date.now() + ticketmasterRequestIntervalMs;
+    return request();
+  });
+  ticketmasterRequestQueue = scheduled.then(
+    () => undefined,
+    () => undefined,
+  );
+  return scheduled;
+};
+
 const fetchTicketmaster = async <T extends z.ZodTypeAny>(
   url: string,
   schema: T,
 ): Promise<z.infer<T>> => {
   let response: Response;
   try {
-    response = await fetch(url, {signal: AbortSignal.timeout(8_000)});
+    response = await scheduleTicketmasterRequest(() =>
+      fetch(url, {signal: AbortSignal.timeout(8_000)}),
+    );
   } catch (error) {
     throw new UpstreamServiceException("Ticketmaster could not be reached.", {
       message: error instanceof Error ? error.message : String(error),
@@ -101,89 +163,106 @@ const fetchTicketmaster = async <T extends z.ZodTypeAny>(
   }
 };
 
+const searchTicketmasterArtists: ConcertProvider["searchArtists"] = async (query) => {
+  if (!appEnv.TICKETMASTER_API_KEY) {
+    throw new ServiceException("Ticketmaster is not configured.");
+  }
+
+  return getCached(artistCache, normalizeArtistName(query), 1000 * 60 * 60 * 6, async () => {
+    const params = new URLSearchParams({
+      apikey: appEnv.TICKETMASTER_API_KEY ?? "",
+      keyword: query,
+      classificationName: "music",
+      size: "5",
+    });
+    const data = await fetchTicketmaster(
+      `https://app.ticketmaster.com/discovery/v2/attractions.json?${params}`,
+      ticketmasterAttractionResponseSchema,
+    );
+    return data._embedded?.attractions ?? [];
+  });
+};
+
 const searchTicketmasterArtistEvents: ConcertProvider["searchArtistEvents"] = async (
   artistName,
+  selectedAttractionId,
 ) => {
   if (!appEnv.TICKETMASTER_API_KEY) {
     throw new ServiceException("Ticketmaster is not configured.");
   }
 
   const normalizedArtistName = normalizeArtistName(artistName);
-  const attractionParams = new URLSearchParams({
-    apikey: appEnv.TICKETMASTER_API_KEY,
-    keyword: artistName,
-    classificationName: "music",
-    size: "5",
+  const cacheKey = selectedAttractionId
+    ? `id:${selectedAttractionId}`
+    : `name:${normalizedArtistName}`;
+
+  return getCached(eventCache, cacheKey, 1000 * 60 * 15, async () => {
+    const attractionId = selectedAttractionId ?? (await searchTicketmasterArtists(artistName))
+      .find(
+        (attraction) => normalizeArtistName(attraction.name) === normalizedArtistName,
+      )?.id;
+
+    const params = new URLSearchParams({
+      apikey: appEnv.TICKETMASTER_API_KEY ?? "",
+      classificationName: "music",
+      sort: "date,asc",
+      size: "20",
+    });
+    params.set(attractionId ? "attractionId" : "keyword", attractionId ?? artistName);
+
+    const data = await fetchTicketmaster(
+      `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
+      ticketmasterResponseSchema,
+    );
+
+    const events = (data._embedded?.events ?? []).flatMap((event) => {
+      if (
+        !attractionId &&
+        !event._embedded?.attractions?.some(
+          (attraction) =>
+            normalizeArtistName(attraction.name) === normalizedArtistName,
+        )
+      ) {
+        return [];
+      }
+
+      const venue = event._embedded?.venues?.[0];
+      const latitude = Number(venue?.location?.latitude);
+      const longitude = Number(venue?.location?.longitude);
+
+      if (!venue || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        throw new UpstreamServiceException(
+          "Ticketmaster returned an event without venue coordinates.",
+          {eventId: event.id},
+        );
+      }
+
+      return {
+        id: event.id,
+        artistName,
+        name: event.name,
+        url: event.url,
+        date: event.dates.start.dateTime ?? event.dates.start.localDate,
+        localDate: event.dates.start.localDate,
+        localTime: event.dates.start.localTime,
+        venue: {
+          name: venue.name,
+          city: venue.city?.name,
+          state: venue.state?.stateCode,
+          country: venue.country?.countryCode,
+          latitude,
+          longitude,
+        },
+      };
+    });
+
+    return {events};
   });
-  let attractionId: string | undefined;
-
-  const attractionData = await fetchTicketmaster(
-    `https://app.ticketmaster.com/discovery/v2/attractions.json?${attractionParams}`,
-    ticketmasterAttractionResponseSchema,
-  );
-  attractionId = attractionData._embedded?.attractions?.find(
-    (attraction) => normalizeArtistName(attraction.name) === normalizedArtistName,
-  )?.id;
-
-  const params = new URLSearchParams({
-    apikey: appEnv.TICKETMASTER_API_KEY,
-    classificationName: "music",
-    sort: "date,asc",
-    size: "20",
-  });
-  params.set(attractionId ? "attractionId" : "keyword", attractionId ?? artistName);
-
-  const data = await fetchTicketmaster(
-    `https://app.ticketmaster.com/discovery/v2/events.json?${params}`,
-    ticketmasterResponseSchema,
-  );
-
-  const events = (data._embedded?.events ?? []).flatMap((event) => {
-    if (
-      !attractionId &&
-      !event._embedded?.attractions?.some(
-        (attraction) =>
-          normalizeArtistName(attraction.name) === normalizedArtistName,
-      )
-    ) {
-      return [];
-    }
-
-    const venue = event._embedded?.venues?.[0];
-    const latitude = Number(venue?.location?.latitude);
-    const longitude = Number(venue?.location?.longitude);
-
-    if (!venue || !Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-      throw new UpstreamServiceException(
-        "Ticketmaster returned an event without venue coordinates.",
-        {eventId: event.id},
-      );
-    }
-
-    return {
-      id: event.id,
-      artistName,
-      name: event.name,
-      url: event.url,
-      date: event.dates.start.dateTime ?? event.dates.start.localDate,
-      localDate: event.dates.start.localDate,
-      localTime: event.dates.start.localTime,
-      venue: {
-        name: venue.name,
-        city: venue.city?.name,
-        state: venue.state?.stateCode,
-        country: venue.country?.countryCode,
-        latitude,
-        longitude,
-      },
-    };
-  });
-
-  return {events};
 };
 
 export const ticketmasterConcertProvider: ConcertProvider = {
   id: "ticketmaster",
   isConfigured: isTicketmasterConfigured,
+  searchArtists: searchTicketmasterArtists,
   searchArtistEvents: searchTicketmasterArtistEvents,
 };

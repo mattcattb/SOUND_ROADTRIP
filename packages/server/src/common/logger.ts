@@ -15,6 +15,14 @@ const transport =
     : undefined;
 
 const pinoInstance = pino({
+  redact: {
+    paths: [
+      "req.headers.cookie",
+      "req.headers.authorization",
+      'res.headers["set-cookie"]',
+    ],
+    censor: "[Redacted]",
+  },
   formatters: {
     level(label) {
       return {level: label};

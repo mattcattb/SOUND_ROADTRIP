@@ -13,10 +13,19 @@ export const tourQuerySchema = z.object({
 
 export const artistSearchSchema = z.object({
   artist: z.string().trim().min(2).max(80),
+  artistId: z.string().trim().min(1).max(80).optional(),
 });
 
-export const searchArtistTour = async (artistName: string) => {
-  const result = await concertProvider.searchArtistEvents(artistName);
+export const artistOptionsSchema = z.object({
+  query: z.string().trim().min(2).max(80),
+});
+
+export const searchArtistOptions = async (query: string) => ({
+  artists: await concertProvider.searchArtists(query),
+});
+
+export const searchArtistTour = async (artistName: string, artistId?: string) => {
+  const result = await concertProvider.searchArtistEvents(artistName, artistId);
 
   return {
     provider: {
@@ -43,7 +52,7 @@ const getSpotifyClient = (accessToken: string) => {
   );
 };
 
-export const getRoadtrip = async (
+export const getSpotifyArtists = async (
   accessToken: string,
   {limit}: z.infer<typeof tourQuerySchema>,
 ) => {
@@ -67,29 +76,5 @@ export const getRoadtrip = async (
     spotifyUrl: artist.external_urls.spotify,
   }));
 
-  const searches = await Promise.all(
-    artists.map((artist) => concertProvider.searchArtistEvents(artist.name)),
-  );
-  const eventIds = new Set<string>();
-  const events = searches
-    .flatMap((search) => search.events)
-    .filter((event) => {
-      if (eventIds.has(event.id)) return false;
-      eventIds.add(event.id);
-      return true;
-    })
-    .sort((a, b) => {
-      if (!a.date) return 1;
-      if (!b.date) return -1;
-      return a.date.localeCompare(b.date);
-    });
-  return {
-    provider: {
-      concerts: concertProvider.id,
-      configured: true,
-      status: "ready" as const,
-    },
-    artists,
-    events,
-  };
+  return {artists};
 };

@@ -75,6 +75,13 @@
 .spotify-button { background: #f4f7ed !important; color: #0b1512 !important; box-shadow: none !important; white-space: nowrap; }
 .privacy-note { grid-column: 1 / -1; margin: -3px 4px 0; color: #64716c; font-size: 10px; }
 .connect-error { grid-column: 1 / -1; margin: 2px 4px 0; color: #ffaaa6; font-size: 12px; line-height: 1.45; }
+.choice-status { grid-column: 1 / -1; margin: 2px 4px 0; color: #d5ff72; font-size: 12px; }
+.artist-choices { grid-column: 1 / -1; display: grid; gap: 8px; padding-top: 4px; }
+.artist-choices > p { margin: 0; color: #8d9994; font-size: 10px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; }
+.artist-choices > span { color: #75827d; font-size: 12px; }
+.artist-choice-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.artist-choice { padding: 7px 10px; border: 1px solid #34443d; border-radius: 999px; color: #dce4dc; background: #12201b; cursor: pointer; font-size: 12px; transition: border-color .2s,color .2s,background .2s; }
+.artist-choice:hover,.artist-choice.selected { border-color: #d5ff72; color: #d5ff72; background: #19291f; }
 .map-state { position: absolute; z-index: 8; right: 5%; bottom: 6%; color: #d5ff72; font-size: 12px; letter-spacing: .08em; }
 .results-drawer { padding: 72px clamp(20px,6vw,96px) 96px; border-top: 1px solid rgba(206,235,220,.12); background: #0a1411; }
 .results-heading { display: flex; align-items: end; justify-content: space-between; gap: 24px; max-width: 1280px; margin: 0 auto 34px; }

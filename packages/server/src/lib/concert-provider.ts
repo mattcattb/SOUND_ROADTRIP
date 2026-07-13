@@ -20,8 +20,17 @@ export interface ConcertSearchResult {
   events: ConcertEvent[];
 }
 
+export interface ConcertArtist {
+  id: string;
+  name: string;
+}
+
 export interface ConcertProvider {
   id: string;
   isConfigured: () => boolean;
-  searchArtistEvents: (artistName: string) => Promise<ConcertSearchResult>;
+  searchArtists: (query: string) => Promise<ConcertArtist[]>;
+  searchArtistEvents: (
+    artistName: string,
+    artistId?: string,
+  ) => Promise<ConcertSearchResult>;
 }
