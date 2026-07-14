@@ -3,8 +3,8 @@ import {useQuery} from "@tanstack/react-query";
 import {DetailedError, parseResponse, type InferResponseType} from "hono/client";
 import {useEffect, useState} from "react";
 import {
+  ArrowLeft,
   CalendarDays,
-  ChevronDown,
   ExternalLink,
   MapPin,
   Search,
@@ -141,6 +141,15 @@ function ExplorePage() {
     });
   };
 
+  const returnToDiscovery = () => {
+    setArtist("");
+    setDiscoveryOpen(true);
+    setFocusRequest(0);
+    navigate({
+      search: () => ({}),
+    });
+  };
+
   return (
     <div className="explorer-shell">
       <header className="app-bar">
@@ -173,19 +182,23 @@ function ExplorePage() {
         </section>
 
         <aside className="concert-rail" aria-label="Artist and concert explorer">
-          <button
-            type="button"
-            className="rail-discovery-toggle"
-            aria-expanded={discoveryOpen}
-            onClick={() => setDiscoveryOpen((open) => !open)}
-          >
-            <span className="rail-toggle-icon"><Search className="h-4 w-4" /></span>
-            <span className="rail-toggle-copy">
-              <small>DISCOVER</small>
-              <strong>{search.artist ? "Change artist" : "Find an artist"}</strong>
-            </span>
-            <ChevronDown className={discoveryOpen ? "h-4 w-4 rotate-180" : "h-4 w-4"} />
-          </button>
+          {search.artist ? (
+            <button type="button" className="rail-back" onClick={returnToDiscovery}>
+              <span className="rail-toggle-icon"><ArrowLeft className="h-4 w-4" /></span>
+              <span className="rail-toggle-copy">
+                <small>ARTIST SELECTED</small>
+                <strong>Back to artist search</strong>
+              </span>
+            </button>
+          ) : (
+            <div className="rail-discovery-heading">
+              <span className="rail-toggle-icon"><Search className="h-4 w-4" /></span>
+              <span className="rail-toggle-copy">
+                <small>DISCOVER</small>
+                <strong>Find an artist</strong>
+              </span>
+            </div>
+          )}
 
           {discoveryOpen ? (
             <div className="rail-discovery">

@@ -21,7 +21,7 @@ const routeLayer: LineLayerSpecification = {
   source: "tour-route",
   layout: {"line-cap": "round", "line-join": "round"},
   paint: {
-    "line-color": "#375f50",
+    "line-color": "#4f7a62",
     "line-width": 4,
     "line-opacity": 0.85,
     "line-dasharray": [1.2, 1.4],
@@ -42,8 +42,8 @@ const routeArrowLayer: SymbolLayerSpecification = {
     "text-allow-overlap": true,
   },
   paint: {
-    "text-color": "#28483d",
-    "text-halo-color": "#f4ecdc",
+    "text-color": "#315742",
+    "text-halo-color": "#edf4e9",
     "text-halo-width": 1.5,
   },
 };
