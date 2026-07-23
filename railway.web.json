@@ -3,10 +3,17 @@
   "build": {
     "builder": "RAILPACK",
     "buildCommand": "bun run --filter=@spotify-roadtrip/web build",
-    "watchPatterns": ["/packages/web/**", "/package.json", "/bun.lock"]
+    "watchPatterns": [
+      "/packages/web/**",
+      "/package.json",
+      "/bun.lock",
+      "/railway.web.json"
+    ]
   },
   "deploy": {
     "startCommand": "bun run --filter=@spotify-roadtrip/web start",
+    "healthcheckPath": "/",
+    "healthcheckTimeout": 30,
     "sleepApplication": true,
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
